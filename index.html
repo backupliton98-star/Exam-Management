@@ -1,0 +1,2670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Controller App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Ensure the hidden class truly hides elements */
+        .hidden {
+            display: none !important;
+        }
+
+        /* New: Hide body until Firebase initializes and determines auth state */
+        .hidden-until-loaded {
+            display: none;
+        }
+
+        /* Custom styles for better aesthetics and responsive handling for a full-stack web page */
+        /* Adjust body padding to make space for fixed elements */
+        body {
+            font-family: 'Kalpurush', 'Inter', sans-serif; /* বাংলা এবং ইংরেজির জন্য Kalpurush ফন্ট যোগ করা হয়েছে */
+            background-color: white; /* বডি ব্যাকগ্রাউন্ড সাদা করা হয়েছে */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* Changed from flex-start to space-between for main content distribution */
+            justify-content: flex-start; /* কন্টেন্ট উপরের দিকে শুরু হবে */
+            min-height: 100vh; /* পুরো ভিউপোর্ট উচ্চতা নিশ্চিত করুন */
+            padding: 1rem; /* চারপাশে হালকা প্যাডিং যোগ করা হয়েছে */
+            padding-top: 4rem; /* Height of the fixed top-bar */
+            padding-bottom: 3.5rem; /* Height of the fixed bottom-nav-bar */
+            margin: 0; /* ডিফল্ট body margin সরান */
+            box-sizing: border-box; /* Padding included in element's total width/height */
+            overflow-y: auto; /* Allow body to scroll if its content overflows */
+        }
+        /* কাস্টম মডাল ব্যাকড্রপ (অন্যান্য মডালের জন্য রাখা হয়েছে) */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-backdrop.show {
+            opacity: 1;
+        }
+        .modal-content {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            padding: 1.5rem 2rem;
+            max-width: 24rem;
+            width: 100%;
+            text-align: center;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        .modal-backdrop.show .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* লগইন কন্টেইনারের জন্য নির্দিষ্ট স্টাইল */
+        #authContainer {
+            background-color: #8B4513; /* SaddleBrown */
+            padding-bottom: 2rem; /* বাটনের জন্য কিছু প্যাডিং নিচে যোগ করুন */
+            border-radius: 0.75rem; /* Standard web element rounded corners */
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2); /* A bit more prominent shadow */
+            width: 90%; /* Keeps it responsive */
+            max-width: 450px; /* Standard single-column form width */
+            height: auto; /* Height adapts to content */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            margin: 2rem auto; /* Center horizontally with vertical spacing */
+            flex-shrink: 0; /* Prevents it from shrinking */
+        }
+
+        /* লগইন পৃষ্ঠার নির্দিষ্ট স্টাইল */
+        #authContainer h2 {
+            margin-top: 2rem; /* Adjusted top margin as logo is removed */
+            color: white;
+            font-size: 1.875rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        #authContainer form {
+            width: 100%;
+            padding: 0 2rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 1rem;
+        }
+        #authContainer form label {
+            color: white;
+            font-weight: 500;
+        }
+        #authContainer form input {
+            background-color: white;
+            border: none;
+            outline: none;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            color: #333;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        #authContainer form input:focus {
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+        }
+        #unifiedAuthBtn {
+            background-color: #A0522D;
+            border: none;
+            color: white;
+            font-weight: bold;
+            padding: 0.875rem 1.5rem;
+            border-radius: 9999px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+            transition: background-color 0.3s ease-in-out;
+            margin-top: auto;
+            margin-bottom: 1rem;
+        }
+        #unifiedAuthBtn:hover {
+            background-color: #8B4513;
+        }
+
+        /* Main App Container Styles (পূর্ণ স্ক্রিন প্রস্থে আসবে) */
+        #mainAppContainer {
+            background-color: white;
+            width: 95%; /* Wider on larger screens */
+            max-width: 1200px; /* Max width for general app content */
+            margin: 2rem auto; /* Center horizontally with vertical spacing from body padding */
+            border-radius: 0.75rem; /* Consistent rounded corners */
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2); /* Consistent shadow */
+            display: flex; /* Make it a flex container for its content */
+            flex-direction: column;
+            overflow: hidden; /* Hide overflow from rounded corners */
+            flex-grow: 1; /* Allow it to grow and fill available space */
+            /* Calculate min-height to fill the space between fixed header/footer and its own margins */
+            min-height: calc(100vh - 4rem - 3.5rem - 4rem); /* 100vh - header height - footer height - (2 * 2rem margin) */
+        }
+
+        /* Small screen adjustments - keep full width and height for mobile 'app' feel */
+        @media (max-width: 600px) { /* Adjust breakpoint to ensure it scales down well before 450px */
+            #authContainer, #mainAppContainer { /* Both go full screen on small devices */
+                width: 100%;
+                border-radius: 0; /* No rounded corners on full-screen mobile */
+                margin: 0; /* No margins on full-screen mobile */
+                min-height: 100vh; /* Fill entire viewport on mobile */
+                max-width: none; /* Remove max-width on mobile */
+                height: auto; /* Still let height adapt, but min-height ensures full screen */
+            }
+            body { /* Adjust body padding for full screen on mobile */
+                padding: 4rem 0 3.5rem 0; /* Remove side padding on full mobile */
+            }
+        }
+
+        /* Update .top-bar for fixed positioning */
+        .top-bar {
+            position: fixed; /* Make it fixed */
+            top: 0;
+            left: 0;
+            width: 100%; /* Spanning full width */
+            z-index: 30; /* Ensure it's above other content and modals */
+            /* Remove original border-radius as it's now at the edge */
+            border-top-left-radius: 0 !important;
+            border-top-right-radius: 0 !important;
+            /* Maintain other styles: background-color, color, padding, display, etc. */
+            height: 4rem; /* Fixed height for consistent layout */
+            box-sizing: border-box; /* Include padding in height */
+            background-color: #8B4513; /* বাদামী রঙ */
+            color: white;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); /* হালকা শ্যাডো */
+        }
+
+        /* Update .bottom-nav-bar for fixed positioning */
+        .bottom-nav-bar {
+            position: fixed; /* Make it fixed */
+            bottom: 0;
+            left: 0;
+            width: 100%; /* Spanning full width */
+            z-index: 30; /* Ensure it's above other content and modals */
+            /* Remove original border-radius */
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            /* Maintain other styles: background-color, color, padding, display, etc. */
+            height: 3.5rem; /* Fixed height for consistent layout */
+            box-sizing: border-box; /* Include padding in height */
+            background-color: #8B4513; /* বাদামী রঙ */
+            color: white;
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -4px 6px -1px rgba(0,0,0,0.1); /* উপরের দিকে হালকা শ্যাডো */
+        }
+
+        /* Top Bar Inner Styles (original .top-bar child styles for profile, institution info, logout button) */
+        .top-bar .profile-circle {
+            background-color: #A0522D; /* প্রোফাইল বৃত্তের রঙ */
+            width: 3rem;
+            height: 3rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.25rem;
+            margin-right: 0.5rem;
+        }
+        .top-bar .institution-info {
+            flex-grow: 1; /* প্রতিষ্ঠান এবং ব্যবহারকারীর নামের জন্য স্থান */
+            text-align: left;
+            margin-left: 0.5rem;
+        }
+        .top-bar .institution-name {
+            font-size: 1.125rem; /* text-lg */
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+            line-height: 1.2; /* Line height adjustment */
+            cursor: pointer; /* To indicate it's clickable */
+            white-space: nowrap; /* Prevent wrapping */
+            overflow: hidden; /* Hide overflow */
+            text-overflow: ellipsis; /* Add ellipsis for overflow */
+        }
+        .top-bar .institution-name-edit {
+            background-color: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.4);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 1.125rem;
+            font-weight: bold;
+            max-width: 150px; /* Adjust as needed */
+            outline: none;
+        }
+        .top-bar .user-name {
+            font-size: 0.875rem; /* text-sm */
+            line-height: 1.2; /* Line height adjustment */
+        }
+        .top-bar .logout-button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 9999px;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .top-bar .logout-button:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        /* Bottom Nav Bar Inner Styles (original .bottom-nav-bar child styles for buttons) */
+        .nav-button {
+            background: none;
+            border: none;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 0.75rem; /* text-xs */
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.75rem; /* হালকা গোলাকার */
+            transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out;
+        }
+        .nav-button:hover {
+            background-color: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+        .nav-button.active {
+            background-color: #A0522D; /* সক্রিয় বাটনের জন্য হালকা গাঢ় বাদামী */
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+        .nav-button svg {
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+
+        /* Main Content Area - Primary scrollable area within the white container */
+        .main-content-area {
+            flex-grow: 1; /* বাকি স্থান নিতে দিন */
+            padding: 1rem;
+            background-color: white;
+            overflow-y: auto; /* কন্টেন্ট বেশি হলে স্ক্রল করার জন্য */
+            /* Add min-height to ensure it takes some space even if content is small */
+            min-height: 100px; /* Example min-height */
+        }
+        .section-heading {
+            font-size: 1.875rem; /* text-3xl */
+            font-weight: bold;
+            color: #333; /* গাঢ় ধূসর রঙ */
+            text-align: center;
+            margin-bottom: 1.5rem;
+            position: sticky; /* Sticky is still good for inner headings within scrolling content */
+            top: 0; /* Stick to the top of its scrollable parent */
+            background-color: white;
+            z-index: 10;
+            padding-top: 1rem;
+            padding-bottom: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .exam-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .exam-item {
+            background-color: #f3f4f6; /* হালকা ধূসর */
+            border-radius: 0.75rem; /* rounded-lg */
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1); /* শ্যাডো */
+            border: 1px solid #e5e7eb; /* বর্ডার */
+            position: relative; /* ডিলিট বাটনের জন্য */
+        }
+        .exam-item-details {
+            flex-grow: 1;
+            margin-right: 0.5rem;
+        }
+        .exam-item-topic {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: bold;
+            color: #22c55e; /* সবুজ রঙ */
+            margin-bottom: 0.25rem;
+        }
+        .exam-item-info {
+            font-size: 0.875rem; /* text-sm */
+            color: #6b7280; /* গাঢ় ধূসর */
+        }
+        .exam-item-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .exam-item-actions button {
+            background-color: #a0522d; /* বাদামী বাটন */
+            color: white;
+            border: none;
+            border-radius: 9999px; /* সম্পূর্ণ গোলাকার বাটন */
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .exam-item-actions button:hover {
+            background-color: #8B4513; /* হোভারে গাঢ় বাদামী */
+        }
+        .exam-item-actions button svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        /* Tab buttons within Results section */
+        .tab-button {
+            background-color: #e2e8f0; /* bg-gray-200 */
+            color: #4a5568; /* text-gray-700 */
+            font-weight: 600; /* font-semibold */
+            padding: 0.75rem 1.5rem; /* py-3 px-6 */
+            border-radius: 0.5rem; /* rounded-lg */
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .tab-button.active {
+            background-color: #22c55e; /* bg-emerald-600 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            transform: translateY(-2px);
+        }
+
+        .tab-button:hover:not(.active) {
+            background-color: #cbd5e1; /* hover:bg-gray-300 */
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-white hidden-until-loaded">
+
+    <!-- Top Bar (এখন ফিক্সড এবং গ্লোবাল) -->
+    <div class="top-bar" id="globalTopBar">
+        <div class="flex items-center">
+            <div class="profile-circle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+            <div class="institution-info">
+                <div class="institution-name-container">
+                    <span id="institutionNameDisplay" class="institution-name">প্রতিষ্ঠানের নাম</span>
+                    <input type="text" id="institutionNameInput" class="institution-name-edit hidden" />
+                </div>
+                <p class="user-name" id="displayUserName">ব্যবহারকারীর নাম</p>
+            </div>
+        </div>
+        <button id="signOutBtn" class="logout-button" title="সাইন আউট">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Authentication Container (লগইন না হলে দেখা যাবে) -->
+    <div id="authContainer" class="">
+        <h2 class="text-3xl font-bold text-white mb-6 text-center">লগইন / সাইন আপ</h2>
+        <form id="authForm" class="w-full space-y-4">
+            <div>
+                <label for="emailInput" class="block text-sm font-medium text-white mb-1">ইমেল</label>
+                <input type="email" id="emailInput" placeholder="আপনার ইমেল লিখুন" class="w-full p-3 text-gray-800" required>
+            </div>
+            <div>
+                <label for="passwordInput" class="block text-sm font-medium text-white mb-1">পাসওয়ার্ড</label>
+                <input type="password" id="passwordInput" placeholder="আপনার পাসওয়ার্ড লিখুন" class="w-full p-3 text-gray-800" required>
+            </div>
+            <div class="flex justify-center mt-8">
+                <button type="button" id="unifiedAuthBtn" class="w-full py-3 px-6">
+                    লগইন/সাইন আপ
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Main App Container (লগইন সফল হলে এটি দৃশ্যমান হবে) -->
+    <div id="mainAppContainer" class="hidden">
+        <!-- Main Content Area -->
+        <div class="main-content-area" id="mainContentArea">
+            <!-- Content will be rendered here by JavaScript based on active nav button -->
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar (এখন ফিক্সড এবং গ্লোবাল) -->
+    <div class="bottom-nav-bar" id="globalBottomNavBar">
+        <button id="upcomingExamsBtn" class="nav-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span>হোম</span>
+        </button>
+        <button id="manageStudentsBtn" class="nav-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span>শিক্ষার্থী</span>
+        </button>
+        <button id="addExamBtn" class="nav-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle">
+                <circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>
+            </svg>
+            <span>যোগ করুন</span>
+        </button>
+        <button id="resultEntryBtn" class="nav-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+            </svg>
+            <span>ফলাফল</span>
+        </button>
+        <button id="managementBtn" class="nav-button">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 = 0 0-2.73.73l-.78 1.22a2 2 0 0 0 .73 2.73l.04.02a2 2 0 0 1 .97 1.95v.44a2 2 0 0 1-.97 1.95l-.04.02a2 2 0 0 0-.73 2.73l.78 1.22a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l-.78-1.22a2 2 0 0 0-.73-2.73l-.04-.02a2 2 0 0 1-.97-1.95v-.44a2 2 0 0 1 .97-1.95l-.04-.02a2 2 0 0 0 .73-2.73l-.78-1.22a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <span>সেটিংস</span>
+        </button>
+    </div>
+
+    <!-- Custom Confirmation Modal HTML (অন্যান্য ডিলিট অপশনের জন্য রাখা হয়েছে) -->
+    <div id="confirmationModal" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <p class="text-lg font-semibold text-gray-800 mb-6" id="modalMessage"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="cancelDeleteBtn" class="px-6 py-2 bg-gray-300 text-gray-800 rounded-full font-medium hover:bg-gray-400 transition-colors duration-200 shadow-md">
+                    বাতিল করুন
+                </button>
+                <button id="confirmDeleteBtn" class="px-6 py-2 bg-emerald-600 text-white rounded-full font-medium hover:bg-emerald-700 transition-colors duration-200 shadow-md">
+                    নিশ্চিত করুন
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Message Modal (New Popup Notification) -->
+    <div id="messagePopupModal" class="modal-backdrop hidden">
+        <div class="modal-content !max-w-xs !p-6">
+            <p id="messagePopupText" class="text-md font-semibold text-gray-800 mb-4"></p>
+            <button id="messagePopupCloseBtn" class="px-6 py-2 bg-emerald-600 text-white rounded-full font-medium hover:bg-emerald-700 transition-colors duration-200 shadow-md">
+                ওকে
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase SDK Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, where, updateDoc, deleteDoc, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration Object
+        const firebaseConfig = {
+            apiKey: "AIzaSyBRyf2J8LjtFCv6kliLAQBKrnuuvstmnYc",
+            authDomain: "exam-controller-app.firebaseapp.com",
+            projectId: "exam-controller-app",
+            storageBucket: "exam-controller-app.firebasestorage.app",
+            messagingSenderId: "739759598796",
+            appId: "1:739759598796:web:657276b27a17a40097a669",
+            measurementId: "G-50J9QN4W3Y"
+        };
+
+        // Global Variables
+        let db;
+        let auth;
+        let userId = null;
+        let appId = firebaseConfig.projectId; // Use projectId as appId directly
+
+        // Firestore collection paths (authenticated user specific)
+        let examsCollectionPath;
+        let classesCollectionPath;
+        let divisionsCollectionPath;
+        let subjectsCollectionPath;
+        let studentsCollectionPath;
+        let examResultsCollectionPath;
+        let userSettingsCollectionPath; // New: for user-specific settings like institution name
+
+        // Global lists to store data from Firestore
+        let examsList = [];
+        let classesList = [];
+        let divisionsList = [];
+        let subjectsList = [];
+        let studentsList = []; // This will now be populated by the specific student management listener
+        let examResultsList = [];
+
+        let examToDeleteId = null; // Store ID for deletion
+
+        const monthsData = [
+            { name: "জানুয়ারি", value: "01" }, { name: "ফেব্রুয়ারি", value: "02" }, { name: "মার্চ", value: "03" },
+            { name: "এপ্রিল", value: "04" }, { name: "মে", value: "05" }, { name: "জুন", value: "06" },
+            { name: "জুলাই", value: "07" }, { name: "আগস্ট", value: "08" }, { name: "সেপ্টেম্বর", value: "09" },
+            { name: "অক্টোবর", value: "10" }, { name: "নভেম্বর", value: "11" }, { name: "ডিসেম্বর", value: "12" }
+        ];
+
+        // ইউটিলিটি ফাংশন: কাস্টম পপআপ মডাল দেখানোর জন্য (পূর্বে showMessage এবং showAuthMessage এর কাজ করত)
+        let messageModalTimeout;
+        const openMessageModal = (msg, type = 'info', autoClose = true) => {
+            clearTimeout(messageModalTimeout); // কোনো পূর্ববর্তী অটো-ক্লোজ টাইমাউট থাকলে তা বাতিল করুন
+            const modal = document.getElementById('messagePopupModal');
+            const messageText = document.getElementById('messagePopupText');
+            const closeBtn = document.getElementById('messagePopupCloseBtn');
+
+            messageText.textContent = msg;
+            messageText.classList.remove('text-green-800', 'text-red-800', 'text-gray-800'); // পূর্ববর্তী রঙ সরান
+            if (type === 'success') {
+                messageText.classList.add('text-green-800');
+            } else if (type === 'error') {
+                messageText.classList.add('text-red-800');
+            } else {
+                messageText.classList.add('text-gray-800'); // ডিফল্ট বা অন্য কোনো ধরণের বার্তা
+            }
+
+            if (modal) { // Null check for modal
+                modal.classList.remove('hidden'); // মডাল দেখান
+                setTimeout(() => modal.classList.add('show'), 10); // ট্রানজিশনের জন্য ছোট বিলম্ব
+            }
+
+
+            if (closeBtn) { // Null check for closeBtn
+                closeBtn.onclick = () => closeMessageModal(); // ক্লোজ বাটনে ক্লিক করলে মডাল বন্ধ হবে
+            }
+
+            if (autoClose) {
+                messageModalTimeout = setTimeout(() => {
+                    closeMessageModal();
+                }, 3000); // 3 সেকেন্ড পর স্বয়ংক্রিয়ভাবে বন্ধ হবে
+            }
+        };
+
+        const closeMessageModal = () => {
+            const modal = document.getElementById('messagePopupModal');
+            if (modal) { // Null check for modal
+                modal.classList.remove('show');
+                setTimeout(() => modal.classList.add('hidden'), 300); // ট্রানজিশনের পর লুকান
+            }
+            clearTimeout(messageModalTimeout); // টাইমাউট বাতিল করুন
+        };
+
+        // ইউটিলিটি ফাংশন: ব্যবহারকারীকে সাধারণ বার্তা দেখানোর জন্য (এখন পপআপ ব্যবহার করে)
+        const showMessage = (msg, type = 'success') => {
+            openMessageModal(msg, type);
+        };
+
+        // ইউটিলিটি ফাংশন: অথেন্টিকেশন নির্দিষ্ট বার্তা দেখানোর জন্য (এখন পপআপ ব্যবহার করে)
+        const showAuthMessage = (msg, type = 'error') => {
+            openMessageModal(msg, type);
+        };
+
+        // ইউটিলিটি ফাংশন: কাস্টম কনফার্মেশন মডাল দেখানোর জন্য
+        const openDeleteModal = (id, type) => {
+            examToDeleteId = id; // এই ভেরিয়েবল এখন যেকোনো আইটেমের আইডি ধারণ করবে
+            const modalMessage = document.getElementById('modalMessage');
+            const modal = document.getElementById('confirmationModal');
+
+            if (modalMessage) { // Null check
+                modalMessage.textContent = `আপনি কি নিশ্চিত যে এই ${type} টি মুছে ফেলতে চান?`;
+                modalMessage.setAttribute('data-item-type', type);
+            }
+            
+            if (modal) { // Null check
+                modal.classList.remove('hidden');
+                setTimeout(() => modal.classList.add('show'), 10);
+            }
+        };
+
+        // ইউটিলিটি ফাংশন: কাস্টম কনফার্মেশন মডাল লুকানোর জন্য
+        const closeDeleteModal = () => {
+            const modal = document.getElementById('confirmationModal');
+            if (modal) { // Null check
+                modal.classList.remove('show');
+                setTimeout(() => modal.classList.add('hidden'), 300); // ট্রানজিশনের পর লুকান
+            }
+            examToDeleteId = null;
+        };
+
+        // ডিলিট হ্যান্ডলিং ফাংশন (পরীক্ষা, ক্লাস, বিভাগ, বিষয়, শিক্ষার্থী, পরীক্ষার ফলাফলের জন্য সাধারণীকরণ করা হয়েছে)
+        const confirmDelete = async () => {
+            if (!examToDeleteId || !db) {
+                showMessage('মুছে ফেলার জন্য কোনো আইটেম নির্বাচন করা হয়নি।', 'error');
+                closeDeleteModal();
+                return;
+            }
+
+            let currentCollectionPath;
+            let successMsg = '';
+            let errorMsg = '';
+            
+            const modalMessage = document.getElementById('modalMessage');
+            const itemTypeToDelete = modalMessage ? modalMessage.getAttribute('data-item-type') : null;
+
+            if (!itemTypeToDelete) { // Ensure itemTypeToDelete is not null
+                showMessage('অজানা আইটেম প্রকার।', 'error');
+                closeDeleteModal();
+                return;
+            }
+
+            switch(itemTypeToDelete) {
+                case 'exam':
+                    currentCollectionPath = examsCollectionPath;
+                    successMsg = 'পরীক্ষা সফলভাবে মুছে ফেলা হয়েছে!';
+                    errorMsg = 'পরীক্ষা মুছে ফেলতে ত্রুটি:';
+                    break;
+                case 'class':
+                    currentCollectionPath = classesCollectionPath;
+                    successMsg = 'ক্লাস সফলভাবে মুছে ফেলা হয়েছে!';
+                    errorMsg = 'ক্লাস মুছে ফেলতে ত্রুটি:';
+                    break;
+                case 'division':
+                    currentCollectionPath = divisionsCollectionPath;
+                    successMsg = 'বিভাগ সফলভাবে মুছে ফেলা হয়েছে!';
+                    errorMsg = 'বিভাগ মুছে ফেলতে ত্রুটি:';
+                    break;
+                case 'subject':
+                    currentCollectionPath = subjectsCollectionPath;
+                    successMsg = 'বিষয় সফলভাবে মুছে ফেলা হয়েছে!';
+                    errorMsg = 'বিষয় মুছে ফেলতে ত্রুটি:';
+                    break;
+                case 'student':
+                    currentCollectionPath = studentsCollectionPath;
+                    successMsg = 'শিক্ষার্থী সফলভাবে মুছে ফেলা হয়েছে!';
+                    errorMsg = 'শিক্ষার্থী মুছে ফেলতে ত্রুটি:';
+                    break;
+                case 'examResult':
+                    currentCollectionPath = examResultsCollectionPath;
+                    successMsg = 'ফলাফল সফলভাবে মুছে ফেলা হয়েছে!';
+                    errorMsg = 'ফলাফল মুছে ফেলতে ত্রুটি:';
+                    break;
+                default:
+                    showMessage('অজানা আইtem প্রকার।', 'error');
+                    closeDeleteModal();
+                    return;
+            }
+
+            try {
+                await deleteDoc(doc(db, currentCollectionPath, examToDeleteId));
+                showMessage(successMsg, 'success');
+            } catch (error) {
+                console.error(`Error deleting ${itemTypeToDelete}: `, error);
+                showMessage(`${errorMsg} ${error.message}`, 'error');
+            } finally {
+                closeDeleteModal();
+            }
+        };
+
+        // --- নতুন ফাংশন: পরীক্ষার সমাপ্তি টগল করুন ---
+        const toggleExamCompletion = async (examId, currentStatus) => {
+            if (!db || !examsCollectionPath) {
+                showMessage('ডাটাবেস প্রস্তুত নয়।', 'error');
+                return;
+            }
+            try {
+                const examRef = doc(db, examsCollectionPath, examId);
+                await updateDoc(examRef, { isCompleted: !currentStatus });
+                showMessage(`পরীক্ষা ${!currentStatus ? 'সম্পন্ন' : 'অসম্পন্ন'} হিসেবে চিহ্নিত করা হয়েছে!`, 'success');
+            } catch (error) {
+                console.error("Error toggling exam completion:", error);
+                showMessage(`পরীক্ষা সম্পন্ন করতে ত্রুটি: ${error.message}`, 'error');
+            }
+        };
+
+        // --- সম্পাদনা ব্যবস্থাপনা ফাংশন (সাধারণীকরণ করা হয়েছে) ---
+        const startEditing = (listItemElement) => {
+            const nameDisplay = listItemElement.querySelector('.item-name-display');
+            const nameEditInput = listItemElement.querySelector('.item-name-edit');
+            const editBtn = listItemElement.querySelector('.edit-item-btn');
+            const deleteBtn = listItemElement.querySelector('.delete-item-btn');
+            const saveBtn = listItemElement.querySelector('.save-item-btn');
+            const cancelBtn = listItemElement.querySelector('.cancel-edit-btn');
+            
+            // For student items, also show/hide other fields
+            const studentIdDisplay = listItemElement.querySelector('.student-id-display');
+            const studentIdEditInput = listItemElement.querySelector('.student-id-edit');
+            const studentClassDisplay = listItemElement.querySelector('.student-class-display');
+            const studentClassEditSelect = listItemElement.querySelector('.student-class-edit');
+            const studentDivisionDisplay = listItemElement.querySelector('.student-division-display');
+            const studentDivisionEditSelect = listItemElement.querySelector('.student-division-edit'); // Fixed typo: listItemielment to listItemElement
+
+            // For exam result items, show/hide marks
+            const mcqMarksDisplay = listItemElement.querySelector('.mcq-marks-display');
+            const mcqMarksInput = listItemElement.querySelector('.mcq-marks-input');
+            const cqMarksDisplay = listItemElement.querySelector('.cq-marks-display');
+            const cqMarksInput = listItemElement.querySelector('.cq-marks-input');
+
+
+            if (nameDisplay) nameDisplay.classList.add('hidden');
+            if (nameEditInput) nameEditInput.classList.remove('hidden');
+            if (editBtn) editBtn.classList.add('hidden');
+            if (deleteBtn) deleteBtn.classList.add('hidden');
+            if (saveBtn) saveBtn.classList.remove('hidden');
+            if (cancelBtn) cancelBtn.classList.remove('hidden');
+
+            if (listItemElement.dataset.itemType === 'student') {
+                if (studentIdDisplay) studentIdDisplay.classList.add('hidden');
+                if (studentIdEditInput) studentIdEditInput.classList.remove('hidden');
+                if (studentClassDisplay) studentClassDisplay.classList.add('hidden');
+                if (studentClassEditSelect) {
+                    studentClassEditSelect.classList.remove('hidden');
+                    populateDropdown(studentClassEditSelect.id, classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন');
+                    studentClassEditSelect.value = listItemElement.dataset.originalClass;
+                }
+                if (studentDivisionDisplay) studentDivisionDisplay.classList.add('hidden');
+                if (studentDivisionEditSelect) {
+                    populateDropdown(studentDivisionEditSelect.id, divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন');
+                    studentDivisionEditSelect.classList.remove('hidden');
+                    studentDivisionEditSelect.value = listItemElement.dataset.originalDivision;
+                }
+            } else if (listItemElement.dataset.itemType === 'examResult') {
+                if (mcqMarksDisplay) mcqMarksDisplay.classList.add('hidden');
+                if (mcqMarksInput) mcqMarksInput.classList.remove('hidden');
+                if (cqMarksDisplay) cqMarksDisplay.classList.add('hidden');
+                if (cqMarksInput) cqMarksInput.classList.remove('hidden');
+                if (mcqMarksInput) mcqMarksInput.focus();
+            }
+
+            if (nameEditInput) nameEditInput.focus();
+        };
+
+        const saveEditedItem = async (listItemElement) => {
+            const itemId = listItemElement.dataset.itemId;
+            const itemType = listItemElement.dataset.itemType;
+            
+            let collectionPath;
+            let successMsg = '';
+            let errorMsg = '';
+            let updateData = {};
+
+            switch (itemType) {
+                case 'class':
+                case 'division':
+                case 'subject':
+                    const newNameSimple = listItemElement.querySelector('.item-name-edit').value.trim();
+                    if (!newNameSimple) {
+                        showMessage('নাম খালি রাখা যাবে না!', 'error');
+                        cancelEditing(listItemElement);
+                        return;
+                    }
+                    if (newNameSimple === listItemElement.dataset.originalName) {
+                        showMessage('কোনো পরিবর্তন করা হয়নি।', 'success');
+                        cancelEditing(listItemElement);
+                        return;
+                    }
+                    updateData = { name: newNameSimple };
+                    collectionPath = itemType === 'class' ? classesCollectionPath : itemType === 'division' ? divisionsCollectionPath : subjectsCollectionPath;
+                    successMsg = `${itemType === 'class' ? 'ক্লাস' : itemType === 'division' ? 'বিভাগ' : 'বিষয়'}ের নাম সফলভাবে আপডেট করা হয়েছে!`;
+                    errorMsg = `${itemType === 'class' ? 'ক্লাস' : itemType === 'division' ? 'বিভাগ' : 'বিষয়'}ের নাম আপডেট করতে ত্রুটি:`;
+                    break;
+                case 'student':
+                    const newStudentName = listItemElement.querySelector('.item-name-edit').value.trim();
+                    const newStudentId = listItemElement.querySelector('.student-id-edit').value.trim();
+                    const newStudentClass = listItemElement.querySelector('.student-class-edit').value;
+                    const newStudentDivision = listItemElement.querySelector('.student-division-edit').value;
+
+                    if (!newStudentName || !newStudentId || !newStudentClass || !newStudentDivision) {
+                        showMessage('শিক্ষার্থীর নাম, আইডি, ক্লাস এবং বিভাগ পূরণ করুন।', 'error');
+                        cancelEditing(listItemElement);
+                        return;
+                    }
+                    updateData = {
+                        name: newStudentName,
+                        studentId: newStudentId,
+                        class: newStudentClass,
+                        division: newStudentDivision
+                    };
+                    collectionPath = studentsCollectionPath;
+                    successMsg = 'শিক্ষার্থীর তথ্য সফলভাবে আপডেট করা হয়েছে!';
+                    errorMsg = 'শিক্ষার্থীর তথ্য আপডেট করতে ত্রুটি:';
+
+                    if (newStudentName === listItemElement.dataset.originalName &&
+                        newStudentId === listItemElement.dataset.originalStudentId &&
+                        newStudentClass === listItemElement.dataset.originalClass &&
+                        newStudentDivision === listItemElement.dataset.originalDivision) {
+                        showMessage('কোনো পরিবর্তন করা হয়নি।', 'success');
+                        cancelEditing(listItemElement);
+                        return;
+                    }
+                    break;
+                case 'examResult':
+                    const newMcqMarks = parseInt(listItemElement.querySelector('.mcq-marks-input').value.trim());
+                    const newCqMarks = parseInt(listItemElement.querySelector('.cq-marks-input').value.trim());
+                    const originalMcqMarks = parseInt(listItemElement.dataset.originalMcqMarks);
+                    const originalCqMarks = parseInt(listItemElement.dataset.originalCqMarks);
+                    const examIdForTotalMark = listItemElement.dataset.examId;
+                    const examForValidation = examsList.find(e => e.id === examIdForTotalMark);
+                    const newTotalMarksObtained = newMcqMarks + newCqMarks;
+
+                    if (isNaN(newMcqMarks) || isNaN(newCqMarks)) {
+                        showMessage('প্রাপ্ত নম্বর একটি বৈধ সংখ্যা হতে হবে!', 'error');
+                        return;
+                    }
+                    if (newMcqMarks < 0 || newCqMarks < 0) {
+                        showMessage('প্রাপ্ত নম্বর ঋণাত্মক হতে পারে না!', 'error');
+                        return;
+                    }
+                    if (examForValidation && newTotalMarksObtained > examForValidation.totalMark) {
+                        showMessage(`প্রাপ্ত মোট নম্বর (${newTotalMarksObtained}) মোট নম্বরের (${examForValidation.totalMark}) বেশি হতে পারে না!`, 'error');
+                        return; // Do not cancel editing, allow user to correct
+                    }
+
+                    updateData = { mcqMarks: newMcqMarks, cqMarks: newCqMarks, totalMarksObtained: newTotalMarksObtained };
+                    collectionPath = examResultsCollectionPath;
+                    successMsg = 'ফলাফল সফলভাবে আপডেট করা হয়েছে!';
+                    errorMsg = 'ফলাফল আপডেট করতে ত্রুটি:';
+                    
+                    if (newMcqMarks === originalMcqMarks && newCqMarks === originalCqMarks) {
+                        showMessage('কোনো পরিবর্তন করা হয়নি।', 'success');
+                        cancelEditing(listItemElement);
+                        return;
+                    }
+                    break;
+                default:
+                    showMessage('অজানা আইটেম প্রকার।', 'error');
+                    cancelEditing(listItemElement);
+                    return;
+            }
+
+            try {
+                const itemRef = doc(db, collectionPath, itemId);
+                await updateDoc(itemRef, updateData);
+                showMessage(successMsg, 'success');
+                // Update original data attributes for immediate display consistency
+                if (updateData.name) {
+                    listItemElement.dataset.originalName = updateData.name;
+                }
+                if (itemType === 'student') {
+                    listItemElement.dataset.originalStudentId = updateData.studentId;
+                    listItemElement.dataset.originalClass = updateData.class;
+                    listItemElement.dataset.originalDivision = updateData.division;
+                } else if (itemType === 'examResult') {
+                    listItemElement.dataset.originalMcqMarks = updateData.mcqMarks;
+                    listItemElement.dataset.originalCqMarks = updateData.cqMarks;
+                    listItemElement.dataset.originalTotalMarksObtained = updateData.totalMarksObtained;
+                }
+            } catch (error) {
+                console.error(`Error updating ${itemType}: `, error);
+                showMessage(`${errorMsg} ${error.message}`, 'error');
+            } finally {
+                cancelEditing(listItemElement); // Revert to display mode
+            }
+        };
+
+        const cancelEditing = (listItemElement) => {
+            const nameDisplay = listItemElement.querySelector('.item-name-display');
+            const nameEditInput = listItemElement.querySelector('.item-name-edit');
+            const editBtn = listItemElement.querySelector('.edit-item-btn');
+            const deleteBtn = listItemElement.querySelector('.delete-item-btn');
+            const saveBtn = listItemElement.querySelector('.save-item-btn');
+            const cancelBtn = listItemElement.querySelector('.cancel-edit-btn');
+            
+            const studentIdDisplay = listItemElement.querySelector('.student-id-display');
+            const studentIdEditInput = listItemElement.querySelector('.student-id-edit');
+            const studentClassDisplay = listItemElement.querySelector('.student-class-display');
+            const studentClassEditSelect = listItemElement.querySelector('.student-class-edit');
+            const studentDivisionDisplay = listItemElement.querySelector('.student-division-display');
+            const studentDivisionEditSelect = listItemElement.querySelector('.student-division-edit');
+
+            const mcqMarksDisplay = listItemElement.querySelector('.mcq-marks-display');
+            const mcqMarksInput = listItemElement.querySelector('.mcq-marks-input');
+            const cqMarksDisplay = listItemElement.querySelector('.cq-marks-display');
+            const cqMarksInput = listItemElement.querySelector('.cq-marks-input');
+
+            if (nameDisplay) {
+                nameDisplay.textContent = listItemElement.dataset.originalName;
+                nameDisplay.classList.remove('hidden');
+            }
+            if (nameEditInput) {
+                nameEditInput.value = listItemElement.dataset.originalName;
+                nameEditInput.classList.add('hidden');
+            }
+            if (editBtn) editBtn.classList.remove('hidden');
+            if (deleteBtn) deleteBtn.classList.remove('hidden');
+            if (saveBtn) saveBtn.classList.add('hidden');
+            if (cancelBtn) cancelBtn.classList.add('hidden');
+
+            if (listItemElement.dataset.itemType === 'student') {
+                if (studentIdDisplay) studentIdDisplay.classList.remove('hidden');
+                if (studentIdEditInput) {
+                    studentIdEditInput.classList.add('hidden');
+                    studentIdEditInput.value = listItemElement.dataset.originalStudentId;
+                }
+                if (studentClassDisplay) studentClassDisplay.classList.remove('hidden');
+                if (studentClassEditSelect) {
+                    studentClassEditSelect.classList.add('hidden');
+                    studentClassEditSelect.value = listItemElement.dataset.originalClass;
+                }
+                if (studentDivisionDisplay) studentDivisionDisplay.classList.remove('hidden');
+                if (studentDivisionEditSelect) {
+                    studentDivisionEditSelect.classList.add('hidden');
+                    studentDivisionEditSelect.value = listItemElement.dataset.originalDivision;
+                }
+            } else if (listItemElement.dataset.itemType === 'examResult') {
+                if (mcqMarksDisplay) mcqMarksDisplay.classList.remove('hidden');
+                if (mcqMarksInput) {
+                    mcqMarksInput.classList.add('hidden');
+                    mcqMarksInput.value = listItemElement.dataset.originalMcqMarks;
+                }
+                if (cqMarksDisplay) cqMarksDisplay.classList.remove('hidden');
+                if (cqMarksInput) {
+                    cqMarksInput.classList.add('hidden');
+                    cqMarksInput.value = listItemElement.dataset.originalCqMarks;
+                }
+            }
+        };
+
+        // ফাংশন: জেনেরিক ড্রপডাউন পূরণ করার জন্য
+        const populateDropdown = (selectId, items, valueKey = 'name', textKey = 'name', placeholder = '') => {
+            const selectElement = document.getElementById(selectId);
+            if (!selectElement) return;
+
+            selectElement.innerHTML = `<option value="">${placeholder || `নির্বাচন করুন`}</option>`;
+            // Ensure items are sorted alphabetically by their display text (textKey)
+            items.sort((a, b) => (String(a[textKey]) || '').localeCompare(String(b[textKey]) || '', 'bn', { sensitivity: 'base' }));
+
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[valueKey];
+                option.textContent = item[textKey];
+                selectElement.appendChild(option);
+            });
+        };
+
+        // --- শিক্ষার্থী ফিল্টার এর জন্য নির্ভরশীল ড্রপডাউন লজিক (ফলাফল ব্যবস্থাপনা) ---
+        const updateStudentFilterDropdown = () => {
+            const filterClassSelect = document.getElementById('filterClass');
+            const filterDivisionSelect = document.getElementById('filterDivision');
+            const filterStudentSelect = document.getElementById('filterStudent');
+
+            if (!filterStudentSelect) return;
+
+            const selectedClass = filterClassSelect?.value;
+            const selectedDivision = filterDivisionSelect?.value;
+
+            let filteredStudents = studentsList;
+
+            if (selectedClass) {
+                filteredStudents = filteredStudents.filter(s => s.class === selectedClass);
+            }
+            if (selectedDivision) {
+                filteredStudents = filteredStudents.filter(s => s.division === selectedDivision);
+            }
+
+            populateDropdown('filterStudent', filteredStudents, 'id', 'name', 'শিক্ষার্থী নির্বাচন করুন');
+        };
+
+        // --- পরীক্ষার ফিল্টারের জন্য নির্ভরশীল ড্রপডাউন লজিক (মাস-ভিত্তিক, ফলাফল ব্যবস্থাপনা) ---
+        const updateExamFilterDropdown = (filterType) => { // filterType to distinguish calls
+            const filterMonthSelect = document.getElementById(`${filterType}Month`);
+            const filterExamSelect = document.getElementById(`${filterType}Exam`);
+
+            if (!filterExamSelect || !filterMonthSelect) return;
+
+            const selectedMonth = filterMonthSelect.value;
+            let filteredExams = examsList;
+
+            if (selectedMonth) {
+                filteredExams = examsList.filter(exam => {
+                    const examMonth = exam.examDate ? exam.examDate.split('-')[1] : null;
+                    return examMonth === selectedMonth;
+                });
+            }
+            populateDropdown(`${filterType}Exam`, filteredExams, 'id', 'topic', 'পরীক্ষা নির্বাচন করুন');
+        };
+
+        const renderAddExamForm = () => {
+            const contentContainer = document.getElementById('mainContentArea');
+            if (!contentContainer) return;
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <form id="addExamForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="examDate" class="block text-sm font-medium text-gray-700 mb-1">পরীক্ষার তারিখ</label>
+                            <input
+                                type="date"
+                                id="examDate"
+                                name="examDate"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label for="class" class="block text-sm font-medium text-gray-700 mb-1">ক্লাস</label>
+                            <select
+                                id="class"
+                                name="class"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                required
+                            >
+                                <option value="">ক্লাস নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="division" class="block text-sm font-medium text-gray-700 mb-1">বিভাগ</label>
+                            <select
+                                id="division"
+                                name="division"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                required
+                            >
+                                <option value="">বিভাগ নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="subject" class="block text-sm font-medium text-gray-700 mb-1">বিষয়</label>
+                            <select
+                                id="subject"
+                                name="subject"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                required
+                            >
+                                <option value="">বিষয় নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="topic" class="block text-sm font-medium text-gray-700 mb-1">বিষয়বস্তু</label>
+                            <input
+                                type="text"
+                                id="topic"
+                                name="topic"
+                                placeholder="যেমন: বীজগণিত, সালোকসংশ্লেষণ"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label for="totalMark" class="block text-sm font-medium text-gray-700 mb-1">মোট নম্বর</label>
+                            <input
+                                type="number"
+                                id="totalMark"
+                                name="totalMark"
+                                placeholder="যেমন: ১০০"
+                                class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                required
+                            />
+                        </div>
+
+                        <div class="md:col-span-2 flex justify-center">
+                            <button
+                                type="submit"
+                                id="addExamSubmitBtn"
+                                class="mt-6 w-full sm:w-auto px-8 py-3 bg-emerald-600 text-white font-bold rounded-full shadow-lg hover:bg-emerald-700 transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                পরীক্ষা যোগ করুন
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            // Attach form submission listener
+            document.getElementById('addExamForm')?.addEventListener('submit', handleAddExamSubmit); // Null check
+            populateDropdown('class', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন');
+            populateDropdown('division', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন');
+            populateDropdown('subject', subjectsList, 'name', 'name', 'বিষয় নির্বাচন করুন');
+        };
+
+        // Function to handle Add Exam form submission
+        const handleAddExamSubmit = async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            const addExamSubmitBtn = document.getElementById('addExamSubmitBtn');
+
+            if (addExamSubmitBtn) { // Null check
+                addExamSubmitBtn.textContent = 'পরীক্ষা যোগ করা হচ্ছে...';
+                addExamSubmitBtn.disabled = true;
+            }
+
+            const examDetails = {
+                class: form.class.value,
+                division: form.division.value,
+                subject: form.subject.value,
+                topic: form.topic.value,
+                totalMark: parseInt(form.totalMark.value),
+                examDate: form.examDate.value,
+                isCompleted: false // New field: exam is not completed by default
+            };
+
+            // Basic validation
+            if (!examDetails.class || !examDetails.division || !examDetails.subject || !examDetails.topic || isNaN(examDetails.totalMark) || !examDetails.examDate) {
+                showMessage('অনুগ্রহ করে সমস্ত ক্ষেত্র সঠিকভাবে পূরণ করুন।', 'error');
+                if (addExamSubmitBtn) { // Null check
+                    addExamSubmitBtn.textContent = 'পরীক্ষা যোগ করুন';
+                    addExamSubmitBtn.disabled = false;
+                }
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, examsCollectionPath), { // Use examsCollectionPath
+                    ...examDetails,
+                    timestamp: new Date(), // Add a timestamp for ordering
+                });
+                showMessage('পরীক্ষা সফলভাবে যোগ করা হয়েছে!', 'success');
+                // Clear form
+                form.reset();
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                showMessage(`পরীক্ষা যোগ করতে ত্রুটি: ${error.message}`, 'error');
+            } finally {
+                if (addExamSubmitBtn) { // Null check
+                    addExamSubmitBtn.textContent = 'পরীক্ষা যোগ করুন';
+                    addExamSubmitBtn.disabled = false;
+                }
+            }
+        };
+
+        // Function to render the Upcoming Exams list
+        const renderUpcomingExamsList = () => {
+            const contentContainer = document.getElementById('mainContentArea');
+            if (!contentContainer) return;
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <h2 class="section-heading">আসন্ন পরীক্ষা</h2>
+                    <div id="examsListContainer">
+                        <p class="text-center text-gray-600 text-lg">আসন্ন পরীক্ষা লোড করা হচ্ছে...</p>
+                    </div>
+                </div>
+            `;
+            fetchExams(); // Start fetching exams once the container is ready
+        };
+
+        // Function to fetch and display exams from Firestore
+        const fetchExams = () => {
+            const examsListContainer = document.getElementById('examsListContainer');
+            if (!db || !examsCollectionPath) {
+                if (examsListContainer) { // Null check
+                    examsListContainer.innerHTML = `<p class="text-center text-red-600 text-lg">ডাটাবেস প্রস্তুত নয়। অনুগ্রহ করে রিফ্রেশ করে চেষ্টা করুন।</p>`;
+                }
+                return;
+            }
+
+            const q = query(collection(db, examsCollectionPath));
+            onSnapshot(q, (snapshot) => {
+                const allExamsData = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Filter to show only UNCOMPLETED exams for "Upcoming Exams" tab
+                const upcomingExamsData = allExamsData.filter(exam => !exam.isCompleted);
+
+                // Sort exams by date in memory (ascending)
+                upcomingExamsData.sort((a, b) => new Date(a.examDate) - new Date(b.examDate));
+
+                if (examsListContainer) { // Null check
+                    if (upcomingExamsData.length === 0) {
+                        examsListContainer.innerHTML = `<p class="text-center text-gray-600 text-lg">কোনো আসন্ন পরীক্ষা পাওয়া যায়নি। "যোগ করুন" ট্যাব ব্যবহার করে কিছু পরীক্ষা যোগ করুন!</p>`;
+                    } else {
+                        examsListContainer.innerHTML = `
+                            <ul class="exam-list">
+                                ${upcomingExamsData.map(exam => `
+                                    <li class="exam-item">
+                                        <div class="exam-item-details">
+                                            <p class="exam-item-topic">${exam.topic}</p>
+                                            <p class="exam-item-info">
+                                                <span class="font-medium">তারিখ:</span> ${exam.examDate} |
+                                                <span class="font-medium"> ক্লাস:</span> ${exam.class} |
+                                                <span class="font-medium"> বিভাগ:</span> ${exam.division} |
+                                                <span class="font-medium"> বিষয়:</span> ${exam.subject} |
+                                                <span class="font-medium"> মোট নম্বর:</span> ${exam.totalMark}
+                                            </p>
+                                        </div>
+                                        <div class="exam-item-actions">
+                                            <button
+                                                data-id="${exam.id}"
+                                                data-completed="${exam.isCompleted || false}"
+                                                class="toggle-complete-btn"
+                                                title="${(exam.isCompleted ? 'অসম্পন্ন' : 'সম্পন্ন')} চিহ্নিত করুন"
+                                            >
+                                                ${exam.isCompleted ? `
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-circle">
+                                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                                        <polyline points="22 4 12 14.01 9 11.01"/>
+                                                    </svg>
+                                                ` : `
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle">
+                                                        <circle cx="12" cy="12" r="10"/>
+                                                    </svg>
+                                                `}
+                                            </button>
+                                            <button
+                                                data-id="${exam.id}"
+                                                data-type="exam"
+                                                class="delete-item-btn"
+                                                title="পরীক্ষা মুছে ফেলুন"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="lucide lucide-trash-2">
+                                                    <path d="M3 6h18"/>
+                                                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                                    <line x1="10" x2="10" y1="11" y2="17"/>
+                                                    <line x1="14" x2="14" y1="11" y2="17"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        `;
+                        document.querySelectorAll('.delete-item-btn').forEach(button => {
+                            button.addEventListener('click', (e) => {
+                                const id = e.currentTarget.dataset.id;
+                                const type = e.currentTarget.dataset.type;
+                                openDeleteModal(id, type);
+                            });
+                        });
+                        document.querySelectorAll('.toggle-complete-btn').forEach(button => {
+                            button.addEventListener('click', (e) => {
+                                const id = e.currentTarget.dataset.id;
+                                const isCompleted = e.currentTarget.dataset.completed === 'true'; // Convert string to boolean
+                                toggleExamCompletion(id, isCompleted);
+                            });
+                        });
+                    }
+                }
+            }, (error) => {
+                console.error("Error fetching exams: ", error);
+                showMessage(`পরীক্ষা লোড করতে ত্রুটি: ${error.message}`, 'error');
+                if (examsListContainer) { // Null check
+                    examsListContainer.innerHTML = `<p class="text-center text-red-600 text-lg">পরীক্ষা লোড করা যায়নি।</p>`;
+                }
+            });
+        };
+
+        // --- NEW: Monthly Exam List Page (মাসিক তালিকা) ---
+        const renderMonthlyExamListPage = () => {
+            const contentContainer = document.getElementById('resultSubContentArea'); // Render inside sub-content area
+            if (!contentContainer) return;
+            const currentYear = new Date().getFullYear();
+            const years = Array.from({length: 5}, (v, i) => currentYear - i); // Last 5 years
+            
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <h2 class="section-heading">মাসিক পরীক্ষার তালিকা</h2>
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="monthlyListYear" class="block text-sm font-medium text-gray-700 mb-1">বছর নির্বাচন করুন</label>
+                            <select id="monthlyListYear" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                                <option value="">বছর নির্বাচন করুন</option>
+                                ${years.map(year => `<option value="${year}">${year}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="monthlyListMonth" class="block text-sm font-medium text-gray-700 mb-1">মাস নির্বাচন করুন</label>
+                            <select id="monthlyListMonth" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                                <option value="">মাস নির্বাচন করুন</option>
+                                ${monthsData.map(month => `<option value="${month.value}">${month.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="monthlyListClass" class="block text-sm font-medium text-gray-700 mb-1">ক্লাস নির্বাচন করুন</label>
+                            <select id="monthlyListClass" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                                <option value="">ক্লাস নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="monthlyListDivision" class="block text-sm font-medium text-gray-700 mb-1">বিভাগ নির্বাচন করুন</label>
+                            <select id="monthlyListDivision" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                                <option value="">বিভাগ নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2 flex justify-center">
+                            <button id="filterMonthlyExamsBtn" class="w-full sm:w-auto px-6 py-3 bg-emerald-600 text-white font-bold rounded-full shadow-lg hover:bg-emerald-700 transition-all duration-300 ease-in-out transform hover:scale-105">
+                                দেখুন
+                            </button>
+                        </div>
+                    </div>
+                    <div id="monthlyExamsResult" class="mt-8">
+                        <p class="text-center text-gray-600 text-lg">বছর, মাস, ক্লাস এবং বিভাগ নির্বাচন করে পরীক্ষা দেখুন।</p>
+                    </div>
+                </div>
+            `;
+            populateDropdown('monthlyListClass', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন');
+            populateDropdown('monthlyListDivision', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন');
+            document.getElementById('filterMonthlyExamsBtn')?.addEventListener('click', fetchMonthlyExamsFiltered); // Null check
+        };
+
+        const fetchMonthlyExamsFiltered = async () => {
+            const selectedYear = document.getElementById('monthlyListYear')?.value;
+            const selectedMonth = document.getElementById('monthlyListMonth')?.value;
+            const selectedClass = document.getElementById('monthlyListClass')?.value;
+            const selectedDivision = document.getElementById('monthlyListDivision')?.value;
+            const monthlyExamsResult = document.getElementById('monthlyExamsResult');
+
+            if (!selectedYear || !selectedMonth || !selectedClass || !selectedDivision) {
+                showMessage('অনুগ্রহ করে বছর, মাস, ক্লাস এবং বিভাগ উভয়ই নির্বাচন করুন।', 'error');
+                if (monthlyExamsResult) {
+                    monthlyExamsResult.innerHTML = `<p class="text-center text-red-600 text-lg">অনুগ্রহ করে বছর, মাস, ক্লাস এবং বিভাগ উভয়ই নির্বাচন করুন।</p>`;
+                }
+                return;
+            }
+
+            if (!db || !examsCollectionPath) {
+                if (monthlyExamsResult) {
+                    monthlyExamsResult.innerHTML = `<p class="text-center text-red-600 text-lg">ডাটাবেস প্রস্তুত নয়। অনুগ্রহ করে রিফ্রেশ করে চেষ্টা করুন।</p>`;
+                }
+                return;
+            }
+
+            if (monthlyExamsResult) {
+                monthlyExamsResult.innerHTML = `<p class="text-center text-gray-600 text-lg">পরীক্ষা লোড করা হচ্ছে...</p>`;
+            }
+
+            try {
+                const q = query(
+                    collection(db, examsCollectionPath),
+                    where('class', '==', selectedClass),
+                    where('division', '==', selectedDivision)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                const allExams = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                const filteredExams = allExams.filter(exam => {
+                    const [examYear, examMonth] = exam.examDate.split('-');
+                    return examYear === selectedYear && examMonth === selectedMonth;
+                });
+
+                filteredExams.sort((a, b) => new Date(a.examDate) - new Date(b.examDate));
+
+                if (monthlyExamsResult) {
+                    if (filteredExams.length === 0) {
+                        monthlyExamsResult.innerHTML = `<p class="text-center text-gray-600 text-lg">এই মাসে এই ক্লাস ও বিভাগের কোনো পরীক্ষা পাওয়া যায়নি।</p>`;
+                    } else {
+                        monthlyExamsResult.innerHTML = `
+                            <p class="text-lg font-semibold text-gray-700 mb-4 text-center">মোট পরীক্ষা: ${filteredExams.length}টি</p>
+                            <ul class="space-y-3">
+                                ${filteredExams.map(exam => `
+                                    <li class="bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
+                                        <p class="font-medium text-emerald-600">${exam.topic}</p>
+                                        <p class="text-sm text-gray-600">তারিখ: ${exam.examDate} | ক্লাস: ${exam.class} | বিষয়: ${exam.subject} ${exam.isCompleted ? '<span class="text-green-600 font-semibold">(সম্পন্ন)</span>' : ''}</p>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching monthly exams:", error);
+                showMessage(`মাসিক পরীক্ষা লোড করতে ত্রুটি: ${error.message}`, 'error');
+                if (monthlyExamsResult) {
+                    monthlyExamsResult.innerHTML = `<p class="text-center text-red-600 text-lg">একটি ত্রুটি হয়েছে।</p>`;
+                }
+            }
+        };
+
+
+        // --- Student Management Functions ---
+        const handleAddStudent = async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            const studentName = form.newStudentName.value.trim();
+            const studentId = form.newStudentId.value.trim();
+            const studentClass = form.addStudentClass.value;
+            const studentDivision = form.addStudentDivision.value;
+
+            if (!studentName || !studentId || !studentClass || !studentDivision) {
+                showMessage('শিক্ষার্থীর নাম, আইডি, ক্লাস এবং বিভাগ পূরণ করুন।', 'error');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, studentsCollectionPath), {
+                    name: studentName,
+                    studentId: studentId,
+                    class: studentClass,
+                    division: studentDivision,
+                    timestamp: new Date()
+                });
+                showMessage('শিক্ষার্থী সফলভাবে যোগ করা হয়েছে!', 'success');
+                form.reset();
+            } catch (error) {
+                console.error("Error adding student:", error);
+                showMessage(`শিক্ষার্থী যোগ করতে ত্রুটি: ${error.message}`, 'error');
+            }
+        };
+
+        // --- OLD Result Management Page (renamed to renderFilteredResultsPage) ---
+        const renderFilteredResultsPage = () => {
+            const contentContainer = document.getElementById('resultSubContentArea');
+            if (!contentContainer) return;
+            const currentYear = new Date().getFullYear();
+            const years = Array.from({length: 5}, (v, i) => currentYear - i); // Last 5 years
+
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <h2 class="section-heading">ফলাফল</h2>
+                    
+                    <!-- Filter Section -->
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label for="filterYear" class="block text-sm font-medium text-gray-700 mb-1">বছর</label>
+                            <select id="filterYear" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">বছর নির্বাচন করুন</option>
+                                ${years.map(year => `<option value="${year}">${year}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterMonth" class="block text-sm font-medium text-gray-700 mb-1">মাস</label>
+                            <select id="filterMonth" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">মাস নির্বাচন করুন</option>
+                                ${monthsData.map(month => `<option value="${month.value}">${month.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterClass" class="block text-sm font-medium text-gray-700 mb-1">ক্লাস</label>
+                            <select id="filterClass" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">ক্লাস নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterDivision" class="block text-sm font-medium text-gray-700 mb-1">বিভাগ</label>
+                            <select id="filterDivision" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">বিভাগ নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterExam" class="block text-sm font-medium text-gray-700 mb-1">পরীক্ষা</label>
+                            <select id="filterExam" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">পরীক্ষা নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filterStudent" class="block text-sm font-medium text-gray-700 mb-1">শিক্ষার্থী</label>
+                            <select id="filterStudent" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">শিক্ষার্থী নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1 md:col-span-2 lg:col-span-3 flex items-end">
+                            <button id="applyResultFiltersBtn" class="w-full px-6 py-3 bg-emerald-600 text-white font-bold rounded-full shadow hover:bg-emerald-700 transition-colors duration-200">
+                                ফলাফল দেখুন
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Results Display Area -->
+                    <div id="filteredExamResultsList" class="p-4 border border-gray-200 rounded-lg bg-white">
+                        <p class="text-center text-gray-600 text-md">উপরের ফিল্টার ব্যবহার করে ফলাফল খুঁজুন।</p>
+                    </div>
+                </div>
+            `;
+            // Populate dropdowns initially
+            populateDropdown('filterMonth', monthsData, 'value', 'name', 'মাস নির্বাচন করুন');
+            populateDropdown('filterExam', examsList, 'id', 'topic', 'পরীক্ষা নির্বাচন করুন'); // Initially all exams
+            populateDropdown('filterClass', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন');
+            populateDropdown('filterDivision', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন');
+            // Student dropdown will be populated dynamically based on class/division selection
+
+            // Attach listeners for filter changes to update other dropdowns
+            document.getElementById('filterMonth')?.addEventListener('change', () => updateExamFilterDropdown('filter')); // Null check
+            document.getElementById('filterClass')?.addEventListener('change', updateStudentFilterDropdown); // Null check
+            document.getElementById('filterDivision')?.addEventListener('change', updateStudentFilterDropdown); // Null check
+
+            // Attach listener for the "Apply Filters" button
+            document.getElementById('applyResultFiltersBtn')?.addEventListener('click', applyResultFilters); // Null check
+        };
+
+        const applyResultFilters = async () => {
+            const selectedYear = document.getElementById('filterYear')?.value;
+            const selectedMonth = document.getElementById('filterMonth')?.value;
+            const selectedExamId = document.getElementById('filterExam')?.value;
+            const selectedClass = document.getElementById('filterClass')?.value;
+            const selectedDivision = document.getElementById('filterDivision')?.value;
+            const selectedStudentId = document.getElementById('filterStudent')?.value;
+            
+            const resultsContainer = document.getElementById('filteredExamResultsList');
+            if (!db || !examResultsCollectionPath) {
+                if (resultsContainer) { // Null check
+                    resultsContainer.innerHTML = `<p class="text-center text-red-600 text-md">ডাটাবেস প্রস্তুত নয়।</p>`;
+                }
+                return;
+            }
+
+            if (resultsContainer) { // Null check
+                resultsContainer.innerHTML = `<p class="text-center text-gray-600 text-md">ফলাফল লোড করা হচ্ছে...</p>`;
+            }
+
+            let resultsQuery = collection(db, examResultsCollectionPath);
+            let queryConstraints = [];
+
+            if (selectedExamId) {
+                queryConstraints.push(where('examId', '==', selectedExamId));
+            }
+            if (selectedClass) {
+                queryConstraints.push(where('studentClass', '==', selectedClass));
+            }
+            if (selectedDivision) {
+                queryConstraints.push(where('studentDivision', '==', selectedDivision));
+            }
+            if (selectedStudentId) {
+                queryConstraints.push(where('studentDocId', '==', selectedStudentId));
+            }
+
+            let combinedQuery = resultsQuery;
+            if (queryConstraints.length > 0) {
+                 combinedQuery = query(resultsQuery, ...queryConstraints);
+            }
+            
+            try {
+                const querySnapshot = await getDocs(combinedQuery);
+                let filteredResults = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                // Client-side filtering by month and year if selected (Firestore query for month and year on exam.examDate is not straightforward)
+                if (selectedMonth || selectedYear) {
+                    filteredResults = filteredResults.filter(result => {
+                        const exam = examsList.find(e => e.id === result.examId);
+                        if (exam) {
+                            const [examYear, examMonth] = exam.examDate.split('-');
+                            const monthMatch = selectedMonth ? (examMonth === selectedMonth) : true;
+                            const yearMatch = selectedYear ? (examYear === selectedYear) : true;
+                            return monthMatch && yearMatch;
+                        }
+                        return false;
+                    });
+                }
+
+
+                if (resultsContainer) { // Null check
+                    if (filteredResults.length === 0) {
+                        resultsContainer.innerHTML = `<p class="text-center text-gray-600 text-md">কোনো ফলাফল পাওয়া যায়নি।</p>`;
+                    } else {
+                        resultsContainer.innerHTML = `
+                            <ul class="space-y-4">
+                                ${filteredResults.map(result => {
+                                    const exam = examsList.find(e => e.id === result.examId);
+                                    const totalMark = exam ? exam.totalMark : 'N/A';
+                                    const mcq = result.mcqMarks !== undefined ? result.mcqMarks : 'N/A';
+                                    const cq = result.cqMarks !== undefined ? result.cqMarks : 'N/A';
+                                    const totalObtained = result.totalMarksObtained !== undefined ? result.totalMarksObtained : 'N/A';
+                                    return `
+                                        <li class="bg-white p-4 sm:p-5 rounded-lg shadow-md border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center relative group"
+                                            data-item-id="${result.id}" data-item-type="examResult" data-original-name="${result.studentName || ''}" data-original-mcq-marks="${mcq}" data-original-cq-marks="${cq}" data-exam-id="${exam ? exam.id : ''}"
+                                        >
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-xl font-semibold text-emerald-700 mb-1 item-name-display">${result.studentName} (আইডি: ${result.studentId || ''})</p>
+                                                <input type="text" value="${result.studentName || ''}" class="item-name-edit w-full p-2 border border-gray-300 rounded-md hidden" disabled />
+                                                <p class="text-sm text-gray-600">
+                                                    <span class="font-medium">পরীক্ষা:</span> ${exam ? exam.topic : 'N/A'} |
+                                                    <span class="font-medium">তারিখ:</span> ${exam ? exam.examDate : 'N/A'} |
+                                                    <span class="font-medium"> ক্লাস:</span> ${result.studentClass || 'N/A'} |
+                                                    <span class="font-medium"> বিভাগ:</span> ${result.studentDivision || 'N/A'}
+                                                </p>
+                                                <p class="text-lg font-bold text-emerald-700">
+                                                    MCQ: <span class="mcq-marks-display">${mcq}</span> | CQ: <span class="cq-marks-display">${cq}</span> | মোট প্রাপ্ত: ${totalObtained} / ${totalMark}
+                                                </p>
+                                                <div class="flex space-x-2 mt-2 hidden">
+                                                    <input type="number" value="${mcq}" class="mcq-marks-input w-20 p-2 border border-gray-300 rounded-md" placeholder="MCQ" />
+                                                    <input type="number" value="${cq}" class="cq-marks-input w-20 p-2 border border-gray-300 rounded-md" placeholder="CQ" />
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center mt-3 md:mt-0 ml-0 md:ml-4 space-x-2">
+                                                <button
+                                                    class="edit-item-btn p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors duration-200"
+                                                    title="এডিট করুন"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil">
+                                                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                                        <path d="M15 5l4 4"/>
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    class="save-item-btn p-1 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors duration-200 hidden"
+                                                    title="সেভ করুন"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save">
+                                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                                        <polyline points="17 21 17 13 7 13 7 21"/>
+                                                        <polyline points="7 3 7 8 15 8"/>
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    class="cancel-edit-btn p-1 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition-colors duration-200 hidden"
+                                                    title="বাতিল করুন"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x">
+                                                        <path d="M18 6 6 18"/>
+                                                        <path d="m6 6 12 12"/>
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    data-id="${result.id}"
+                                                    data-type="examResult"
+                                                    class="delete-item-btn p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-200"
+                                                    title="ফলাফল মুছে ফেলুন"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="lucide lucide-trash-2">
+                                                        <path d="M3 6h18"/>
+                                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                                        <line x1="10" x2="10" y1="11" y2="17"/>
+                                                        <line x1="14" x2="14" y1="11" y2="17"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </li>
+                                    `;
+                                }).join('')}
+                            </ul>
+                        `;
+                        resultsContainer.querySelectorAll('.edit-item-btn').forEach(button => {
+                            button.addEventListener('click', (e) => startEditing(e.currentTarget.closest('li')));
+                        });
+                        resultsContainer.querySelectorAll('.save-item-btn').forEach(button => {
+                            button.addEventListener('click', (e) => saveEditedItem(e.currentTarget.closest('li')));
+                        });
+                        resultsContainer.querySelectorAll('.cancel-edit-btn').forEach(button => {
+                            button.addEventListener('click', (e) => cancelEditing(e.currentTarget.closest('li')));
+                        });
+                        resultsContainer.querySelectorAll('.delete-item-btn').forEach(button => {
+                            button.addEventListener('click', (e) => {
+                                const id = e.currentTarget.dataset.id;
+                                const type = e.currentTarget.dataset.type;
+                                openDeleteModal(id, type);
+                            });
+                        });
+                    }
+                }
+
+            } catch (error) {
+                console.error("Error fetching filtered exam results:", error);
+                showMessage(`ফলাফল লোড করতে ত্রুটি: ${error.message}`, 'error');
+                if (resultsContainer) { // Null check
+                    resultsContainer.innerHTML = `<p class="text-center text-red-600 text-lg">ফলাফল লোড করা যায়নি।</p>`;
+                }
+            }
+        };
+
+
+        // --- Student Management Page (New dedicated function) ---
+        const renderStudentManagementPage = () => {
+            const contentContainer = document.getElementById('mainContentArea');
+            if (!contentContainer) return;
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <h2 class="section-heading">শিক্ষার্থী ব্যবস্থাপনা</h2>
+                    <div id="studentManagementSection" class="mb-10 p-6 border border-gray-200 rounded-xl shadow-md">
+                        <h3 class="text-2xl font-semibold text-emerald-700 mb-4">শিক্ষার্থী যোগ করুন</h3>
+                        <form id="addStudentForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div class="col-span-1">
+                                <label for="newStudentName" class="block text-sm font-medium text-gray-700 mb-1">শিক্ষার্থীর নাম</label>
+                                <input type="text" id="newStudentName" placeholder="শিক্ষার্থীর নাম" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                            </div>
+                            <div class="col-span-1">
+                                <label for="newStudentId" class="block text-sm font-medium text-gray-700 mb-1">শিক্ষার্থীর আইডি</label>
+                                <input type="text" id="newStudentId" placeholder="শিক্ষার্থীর আইডি" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                            </div>
+                            <div class="col-span-1">
+                                <label for="addStudentClass" class="block text-sm font-medium text-gray-700 mb-1">ক্লাস</label>
+                                <select id="addStudentClass" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                                    <option value="">ক্লাস নির্বাচন করুন</option>
+                                </select>
+                            </div>
+                            <div class="col-span-1">
+                                <label for="addStudentDivision" class="block text-sm font-medium text-gray-700 mb-1">বিভাগ</label>
+                                <select id="addStudentDivision" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                                    <option value="">বিভাগ নির্বাচন করুন</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2 flex justify-center">
+                                <button type="submit" class="px-6 py-3 bg-emerald-600 text-white font-bold rounded-full shadow hover:bg-emerald-700 transition-colors duration-200">শিক্ষার্থী যোগ করুন</button>
+                            </div>
+                        </form>
+                        <h3 class="text-2xl font-semibold text-emerald-700 mb-4 mt-8">শিক্ষার্থীদের তালিকা</h3>
+                        <div id="studentsListContainer" class="space-y-2">
+                            <p class="text-gray-600">শিক্ষার্থী লোড হচ্ছে...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('addStudentForm')?.addEventListener('submit', handleAddStudent);
+            populateDropdown('addStudentClass', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন');
+            populateDropdown('addStudentDivision', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন');
+            
+            // Setup student-specific listener only when this page is active
+            if (db && studentsCollectionPath) {
+                onSnapshot(collection(db, studentsCollectionPath), (snapshot) => {
+                    studentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    displayManagedItems('studentsListContainer', studentsList, 'student');
+                }, (error) => {
+                    console.error("Error fetching students:", error);
+                    const studentsListContainer = document.getElementById('studentsListContainer');
+                    if (studentsListContainer) {
+                        studentsListContainer.innerHTML = `<p class="text-red-600">শিক্ষার্থী লোড করতে ত্রুটি।</p>`;
+                    }
+                });
+            }
+        };
+
+        // --- Management Page (Classes, Divisions, Subjects) ---
+        const renderManagementPage = () => { // Renamed conceptually to render "general" management
+            const contentContainer = document.getElementById('mainContentArea');
+            if (!contentContainer) return;
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <h2 class="section-heading">ক্লাস, বিভাগ ও বিষয় ব্যবস্থাপনা</h2>
+
+                    <!-- Class Management -->
+                    <div id="classManagementSection" class="mb-10 p-6 border border-gray-200 rounded-xl shadow-md">
+                        <h3 class="text-2xl font-semibold text-emerald-700 mb-4">ক্লাস ব্যবস্থাপনা</h3>
+                        <form id="addClassForm" class="flex flex-col sm:flex-row gap-3 mb-6">
+                            <input type="text" id="newClassName" placeholder="নতুন ক্লাসের নাম লিখুন (যেমন: 13th)" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                            <button type="submit" class="px-6 py-3 bg-emerald-600 text-white font-bold rounded-full shadow hover:bg-emerald-700 transition-colors duration-200">যোগ করুন</button>
+                        </form>
+                        <div id="classesListContainer" class="space-y-2">
+                            <p class="text-gray-600">ক্লাস লোড হচ্ছে...</p>
+                        </div>
+                    </div>
+
+                    <!-- Division Management -->
+                    <div id="divisionManagementSection" class="mb-10 p-6 border border-gray-200 rounded-xl shadow-md">
+                        <h3 class="text-2xl font-semibold text-emerald-700 mb-4">বিভাগ ব্যবস্থাপনা</h3>
+                        <form id="addDivisionForm" class="flex flex-col sm:flex-row gap-3 mb-6">
+                            <input type="text" id="newDivisionName" placeholder="নতুন বিভাগের নাম লিখুন (যেমন: Section E)" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                            <button type="submit" class="px-6 py-3 bg-emerald-600 text-white font-bold rounded-full shadow hover:bg-emerald-700 transition-colors duration-200">যোগ করুন</button>
+                        </form>
+                        <div id="divisionsListContainer" class="space-y-2">
+                            <p class="text-gray-600">বিভাগ লোড হচ্ছে...</p>
+                        </div>
+                    </div>
+
+                    <!-- Subject Management -->
+                    <div id="subjectManagementSection" class="mb-10 p-6 border border-gray-200 rounded-xl shadow-md">
+                        <h3 class="2xl font-semibold text-emerald-700 mb-4">বিষয় ব্যবস্থাপনা</h3>
+                        <form id="addSubjectForm" class="flex flex-col sm:flex-row gap-3 mb-6">
+                            <input type="text" id="newSubjectName" placeholder="নতুন বিষয়ের নাম লিখুন (যেমন: Data Science)" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" required>
+                            <button type="submit" class="px-6 py-3 bg-emerald-600 text-white font-bold rounded-full shadow hover:bg-emerald-700 transition-colors duration-200">যোগ করুন</button>
+                        </form>
+                        <div id="subjectsListContainer" class="space-y-2">
+                            <p class="text-gray-600">বিষয় লোড হচ্ছে...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            attachManagementListeners(); // Re-attach listeners for these sections
+            fetchManagedItems(); // Re-fetch only these managed items
+        };
+
+        const attachManagementListeners = () => {
+            document.getElementById('addClassForm')?.addEventListener('submit', (e) => handleAddItem(e, classesCollectionPath, 'class')); // Null check
+            document.getElementById('addDivisionForm')?.addEventListener('submit', (e) => handleAddItem(e, divisionsCollectionPath, 'division')); // Null check
+            document.getElementById('addSubjectForm')?.addEventListener('submit', (e) => handleAddItem(e, subjectsCollectionPath, 'subject')); // Null check
+            // handleAddStudent listener is now inside renderStudentManagementPage
+        };
+
+        const handleAddItem = async (event, collectionPath, itemType) => {
+            event.preventDefault();
+            const form = event.target;
+            const inputField = form.querySelector('input[type="text"]');
+            const itemName = inputField ? inputField.value.trim() : ''; // Null check
+
+            if (!itemName) {
+                showMessage(`${itemType} এর নাম লিখুন।`, 'error');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, collectionPath), { name: itemName, timestamp: new Date() });
+                showMessage(`${itemType} সফলভাবে যোগ করা হয়েছে!`, 'success');
+                if (inputField) { // Null check
+                    inputField.value = ''; // Clear input
+                }
+            } catch (error) {
+                console.error(`Error adding ${itemType}: `, error);
+                showMessage(`${itemType} যোগ করতে ত্রুটি: ${error.message}`, 'error');
+            }
+        };
+
+        const fetchManagedItems = () => {
+            if (!db) return;
+
+            // Classes
+            const classesListContainer = document.getElementById('classesListContainer');
+            onSnapshot(collection(db, classesCollectionPath), (snapshot) => {
+                const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                displayManagedItems('classesListContainer', items, 'class');
+            }, (error) => {
+                console.error("Error fetching classes:", error);
+                if (classesListContainer) { // Null check
+                    classesListContainer.innerHTML = `<p class="text-red-600">ক্লাস লোড করতে ত্রুটি।</p>`;
+                }
+            });
+
+            // Divisions
+            const divisionsListContainer = document.getElementById('divisionsListContainer');
+            onSnapshot(collection(db, divisionsCollectionPath), (snapshot) => {
+                const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                displayManagedItems('divisionsListContainer', items, 'division');
+            }, (error) => {
+                console.error("Error fetching divisions:", error);
+                if (divisionsListContainer) { // Null check
+                    divisionsListContainer.innerHTML = `<p class="text-red-600">বিভাগ লোড করতে ত্রুটি।</p>`;
+                }
+            });
+
+            // Subjects
+            const subjectsListContainer = document.getElementById('subjectsListContainer');
+            onSnapshot(collection(db, subjectsCollectionPath), (snapshot) => {
+                const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                displayManagedItems('subjectsListContainer', items, 'subject');
+            }, (error) => {
+                console.error("Error fetching subjects:", error);
+                if (subjectsListContainer) { // Null check
+                    subjectsListContainer.innerHTML = `<p class="text-red-600">বিষয় লোড করতে ত্রুটি।</p>`;
+                }
+            });
+
+            // Students: This section is now handled by renderStudentManagementPage()
+            // The global studentsList is updated in setupRealtimeListeners for dropdowns,
+            // but the display logic is now isolated.
+        };
+
+        const displayManagedItems = (containerId, items, itemType) => {
+            const container = document.getElementById(containerId);
+            if (!container) return; // Exit if container not found (e.g., hidden section)
+
+            if (items.length === 0) {
+                container.innerHTML = `<p class="text-gray-600">কোনো ${itemType} যোগ করা হয়নি।</p>`;
+            } else {
+                container.innerHTML = `
+                    <ul class="space-y-2">
+                        ${items.map(item => `
+                            <li class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200" data-item-id="${item.id}" data-item-type="${itemType}" data-original-name="${item.name || ''}"
+                                ${itemType === 'student' ? `data-original-student-id="${item.studentId || ''}" data-original-class="${item.class || ''}" data-original-division="${item.division || ''}"` : ''}
+                            >
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-medium text-gray-800 item-name-display">${item.name}</span>
+                                    <input type="text" value="${item.name || ''}" class="item-name-edit w-full p-2 border border-gray-300 rounded-md hidden" ${itemType === 'examResult' ? 'disabled' : ''}/>
+                                    ${itemType === 'student' ? `
+                                        <p class="text-sm text-gray-600 student-id-display">আইডি: ${item.studentId || ''}</p>
+                                        <input type="text" value="${item.studentId || ''}" class="student-id-edit w-full p-2 border border-gray-300 rounded-md hidden" placeholder="শিক্ষার্থী আইডি" />
+                                        <p class="text-sm text-gray-600 student-class-display">ক্লাস: ${item.class || ''}</p>
+                                        <select class="student-class-edit w-full p-2 border border-gray-300 rounded-md hidden" id="editStudentClass_${item.id}">
+                                            <option value="">ক্লাস নির্বাচন করুন</option>
+                                        </select>
+                                        <p class="text-sm text-gray-600 student-division-display">বিভাগ: ${item.division || ''}</p>
+                                        <select class="student-division-edit w-full p-2 border border-gray-300 rounded-md hidden" id="editStudentDivision_${item.id}">
+                                            <option value="">বিভাগ নির্বাচন করুন</option>
+                                        </select>
+                                    ` : ''}
+                                </div>
+                                <div class="flex items-center space-x-2 ml-4">
+                                    <button
+                                        class="edit-item-btn p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors duration-200"
+                                        title="এডিট করুন"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil">
+                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                                            <path d="M15 5l4 4"/>
+                                        </svg>
+                                    </button>
+                                    <button
+                                        class="save-item-btn p-1 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors duration-200 hidden"
+                                        title="সেভ করুন"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save">
+                                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                                            <polyline points="17 21 17 13 7 13 7 21"/>
+                                            <polyline points="7 3 7 8 15 8"/>
+                                        </svg>
+                                    </button>
+                                    <button
+                                        class="cancel-edit-btn p-1 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition-colors duration-200 hidden"
+                                        title="বাতিল করুন"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x">
+                                            <path d="M18 6 6 18"/>
+                                            <path d="m6 6 12 12"/>
+                                        </svg>
+                                    </button>
+                                    <button
+                                        data-id="${item.id}"
+                                        data-type="${itemType}"
+                                        class="delete-item-btn p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-200"
+                                        title="${itemType} মুছে ফেলুন"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" class="lucide lucide-trash-2">
+                                            <path d="M3 6h18"/>
+                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                                            <line x1="10" x2="10" y1="11" y2="17"/>
+                                            <line x1="14" x2="14" y1="11" y2="17"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+                container.querySelectorAll('.edit-item-btn').forEach(button => {
+                    button.addEventListener('click', (e) => startEditing(e.currentTarget.closest('li')));
+                });
+                container.querySelectorAll('.save-item-btn').forEach(button => {
+                    button.addEventListener('click', (e) => saveEditedItem(e.currentTarget.closest('li')));
+                });
+                container.querySelectorAll('.cancel-edit-btn').forEach(button => {
+                    button.addEventListener('click', (e) => cancelEditing(e.currentTarget.closest('li')));
+                });
+                container.querySelectorAll('.delete-item-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const id = e.currentTarget.dataset.id;
+                        const type = e.currentTarget.dataset.type;
+                        openDeleteModal(id, type);
+                    });
+                });
+                 // For student edit mode, populate dropdowns
+                if (itemType === 'student') {
+                    items.forEach(item => {
+                        const editClassSelect = document.getElementById(`editStudentClass_${item.id}`);
+                        const editDivisionSelect = document.getElementById(`editStudentDivision_${item.id}`);
+                        if (editClassSelect) {
+                            populateDropdown(editClassSelect.id, classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন');
+                            editClassSelect.value = item.class;
+                        }
+                        if (editDivisionSelect) {
+                            populateDropdown(editDivisionSelect.id, divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন');
+                            editDivisionSelect.value = item.division;
+                        }
+                    });
+                }
+            }
+        };
+
+
+        // --- Result Entry Page (MODIFIED) ---
+        const renderResultEntryPage = () => {
+            const contentContainer = document.getElementById('resultSubContentArea'); // Render inside sub-content area
+            if (!contentContainer) return;
+            const currentYear = new Date().getFullYear();
+            const years = Array.from({length: 5}, (v, i) => currentYear - i);
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <h2 class="section-heading">ফলাফল এন্ট্রি</h2>
+                    
+                    <div class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+                        <div class="mb-4">
+                            <label for="entryYear" class="block text-sm font-medium text-gray-700 mb-1">বছর নির্বাচন করুন</label>
+                            <select id="entryYear" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">বছর নির্বাচন করুন</option>
+                                ${years.map(year => `<option value="${year}">${year}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="entryMonth" class="block text-sm font-medium text-gray-700 mb-1">মাস নির্বাচন করুন</label>
+                            <select id="entryMonth" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">মাস নির্বাচন করুন</option>
+                                ${monthsData.map(month => `<option value="${month.value}">${month.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="entryExam" class="block text-sm font-medium text-gray-700 mb-1">পরীক্ষা নির্বাচন করুন</label>
+                            <select id="entryExam" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                <option value="">পরীক্ষা নির্বাচন করুন</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="selectedExamDetailsForEntry" class="hidden bg-white p-6 rounded-xl shadow-2xl w-full">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">নির্বাচিত পরীক্ষা: <span id="examTopicDisplayForEntry"></span></h3>
+                        <p class="text-sm text-gray-600 mb-4">তারিখ: <span id="examDateDisplayForEntry"></span> | ক্লাস: <span id="examClassDisplayForEntry"></span> | বিভাগ: <span id="examDivisionDisplayForEntry"></span> | মোট নম্বর: <span id="examTotalMarkDisplayForEntry"></span></p>
+                        
+                        <div id="studentsForMarksEntryContainer" class="space-y-3 mt-4">
+                            <p class="text-center text-gray-600 text-md">পরীক্ষা নির্বাচন করুন এবং এই পরীক্ষার জন্য শিক্ষার্থী লোড হবে।</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Populate year & month dropdowns for entry
+            populateDropdown('entryYear', years.map(y => ({name:y, value:y})), 'value', 'name', 'বছর নির্বাচন করুন');
+            populateDropdown('entryMonth', monthsData, 'value', 'name', 'মাস নির্বাচন করুন');
+            // Attach listener for month change to update exam dropdown
+            document.getElementById('entryMonth')?.addEventListener('change', () => updateExamFilterDropdown('entry')); // Null check
+            document.getElementById('entryYear')?.addEventListener('change', () => updateExamFilterDropdown('entry')); // Null check
+            // Attach listener for exam change to display students
+            document.getElementById('entryExam')?.addEventListener('change', (e) => { // Null check
+                const selectedExamId = e.target.value;
+                const studentsForMarksEntryContainer = document.getElementById('studentsForMarksEntryContainer');
+                const selectedExamDetailsForEntry = document.getElementById('selectedExamDetailsForEntry');
+                const examTopicDisplayForEntry = document.getElementById('examTopicDisplayForEntry');
+                const examDateDisplayForEntry = document.getElementById('examDateDisplayForEntry');
+                const examClassDisplayForEntry = document.getElementById('examClassDisplayForEntry');
+                const examDivisionDisplayForEntry = document.getElementById('examDivisionDisplayForEntry');
+                const examTotalMarkDisplayForEntry = document.getElementById('examTotalMarkDisplayForEntry');
+
+
+                if (selectedExamId) {
+                    const selectedExam = examsList.find(exam => exam.id === selectedExamId);
+                    if (selectedExam) {
+                        if (examTopicDisplayForEntry) examTopicDisplayForEntry.textContent = selectedExam.topic;
+                        if (examDateDisplayForEntry) examDateDisplayForEntry.textContent = selectedExam.examDate;
+                        if (examClassDisplayForEntry) examClassDisplayForEntry.textContent = selectedExam.class;
+                        if (examDivisionDisplayForEntry) examDivisionDisplayForEntry.textContent = selectedExam.division;
+                        if (examTotalMarkDisplayForEntry) examTotalMarkDisplayForEntry.textContent = selectedExam.totalMark;
+                        if (selectedExamDetailsForEntry) selectedExamDetailsForEntry.classList.remove('hidden');
+
+                        // Filter students based on selected exam's class and division
+                        const filteredStudents = studentsList.filter(student =>
+                            student.class === selectedExam.class && student.division === selectedExam.division
+                        );
+                        displayStudentsForMarksEntry(filteredStudents, selectedExamId, selectedExam.totalMark);
+
+                    }
+                } else {
+                    if (selectedExamDetailsForEntry) selectedExamDetailsForEntry.classList.add('hidden');
+                    if (studentsForMarksEntryContainer) studentsForMarksEntryContainer.innerHTML = `<p class="text-center text-gray-600 text-md">পরীক্ষা নির্বাচন করুন।</p>`;
+                }
+            });
+        };
+
+        const displayStudentsForMarksEntry = (students, examId, totalMark) => {
+            const container = document.getElementById('studentsForMarksEntryContainer');
+            if (!container) return;
+
+            if (students.length === 0) {
+                container.innerHTML = `<p class="text-center text-gray-600 text-md">এই ক্লাস ও বিভাগের কোনো শিক্ষার্থী পাওয়া যায়নি।</p>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <h4 class="text-lg font-semibold text-emerald-700 mb-3">শিক্ষার্থী এবং প্রাপ্ত নম্বর (${totalMark} এর মধ্যে)</h4>
+                <ul class="space-y-3">
+                    ${students.map(student => {
+                        // Find existing result for this student and exam
+                        const existingResult = examResultsList.find(result => result.studentDocId === student.id && result.examId === examId);
+                        const mcqMarks = existingResult ? existingResult.mcqMarks : '';
+                        const cqMarks = existingResult ? existingResult.cqMarks : '';
+                        const resultDocId = existingResult ? existingResult.id : '';
+                        return `
+                            <li class="bg-gray-100 p-3 rounded-lg shadow-sm border border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center"
+                                data-student-doc-id="${student.id}"
+                                data-exam-id="${examId}"
+                                data-result-doc-id="${resultDocId}"
+                                data-total-mark="${totalMark}"
+                                data-mcq-marks="${mcqMarks}"
+                                data-cq-marks="${cqMarks}"
+                            >
+                                <div class="flex-1 min-w-0 mb-2 sm:mb-0">
+                                    <p class="font-medium text-gray-800">${student.name} (আইডি: ${student.studentId})</p>
+                                    <p class="text-sm text-gray-600">ক্লাস: ${student.class} | বিভাগ: ${student.division}</p>
+                                </div>
+                                <div class="flex items-center space-x-2 w-full sm:w-auto">
+                                    <input
+                                        type="number"
+                                        value="${mcqMarks}"
+                                        placeholder="MCQ নম্বর"
+                                        class="mcq-marks-input w-24 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500"
+                                        min="0"
+                                    />
+                                    <input
+                                        type="number"
+                                        value="${cqMarks}"
+                                        placeholder="CQ নম্বর"
+                                        class="cq-marks-input w-24 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-emerald-500"
+                                        min="0"
+                                    />
+                                    <button
+                                        class="save-mark-btn px-4 py-2 bg-emerald-600 text-white rounded-full text-sm font-medium hover:bg-emerald-700 transition-colors duration-200"
+                                    >
+                                        ${existingResult ? 'এডিট করুন' : 'যোগ করুন'}
+                                    </button>
+                                </div>
+                            </li>
+                        `;
+                    }).join('')}
+                </ul>
+            `;
+
+            // Attach event listeners to save buttons
+            container.querySelectorAll('.save-mark-btn').forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const listItem = e.target.closest('li');
+                    const studentDocId = listItem.dataset.studentDocId;
+                    const examId = listItem.dataset.examId;
+                    const resultDocId = listItem.dataset.resultDocId;
+                    const totalMark = parseInt(listItem.dataset.totalMark);
+                    const mcqMarksInput = listItem.querySelector('.mcq-marks-input');
+                    const cqMarksInput = listItem.querySelector('.cq-marks-input');
+                    const newMcqMarks = parseInt(mcqMarksInput.value.trim());
+                    const newCqMarks = parseInt(cqMarksInput.value.trim());
+                    const newTotalMarksObtained = newMcqMarks + newCqMarks;
+
+
+                    if (isNaN(newMcqMarks) || isNaN(newCqMarks)) {
+                        showMessage('MCQ এবং CQ নম্বর উভয়ই বৈধ সংখ্যা হতে হবে!', 'error');
+                        return;
+                    }
+                    if (newMcqMarks < 0 || newCqMarks < 0) {
+                        showMessage('প্রাপ্ত নম্বর ঋণাত্মক হতে পারে না!', 'error');
+                        return;
+                    }
+                    if (newTotalMarksObtained < 0 || newTotalMarksObtained > totalMark) {
+                        showMessage(`প্রাপ্ত মোট নম্বর ০ থেকে ${totalMark} এর মধ্যে হতে হবে!`, 'error');
+                        return;
+                    }
+
+                    try {
+                        const resultData = {
+                            examId: examId,
+                            studentDocId: studentDocId,
+                            studentName: students.find(s => s.id === studentDocId)?.name || 'N/A',
+                            studentId: students.find(s => s.id === studentDocId)?.studentId || 'N/A',
+                            studentClass: students.find(s => s.id === studentDocId)?.class || 'N/A',
+                            studentDivision: students.find(s => s.id === studentDocId)?.division || 'N/A',
+                            mcqMarks: newMcqMarks,
+                            cqMarks: newCqMarks,
+                            totalMarksObtained: newTotalMarksObtained,
+                        };
+
+                        if (resultDocId) {
+                            // Update existing result
+                            const resultRef = doc(db, examResultsCollectionPath, resultDocId);
+                            await updateDoc(resultRef, resultData);
+                            showMessage('ফলাফল সফলভাবে আপডেট করা হয়েছে!', 'success');
+                        } else {
+                            // Add new result
+                            await addDoc(collection(db, examResultsCollectionPath), {
+                                ...resultData,
+                                timestamp: new Date()
+                            });
+                            showMessage('ফলাফল সফলভাবে যোগ করা হয়েছে!', 'success');
+                            // Re-render to update the button text from "যোগ করুন" to "এডিট করুন"
+                            // by re-triggering the exam selection logic
+                            const entryExamSelect = document.getElementById('entryExam');
+                            if (entryExamSelect && entryExamSelect.value) {
+                                const selectedExam = examsList.find(e => e.id === entryExamSelect.value);
+                                if (selectedExam) {
+                                    displayStudentsForMarksEntry(
+                                        studentsList.filter(s => s.class === selectedExam.class && s.division === selectedExam.division),
+                                        selectedExam.id,
+                                        selectedExam.totalMark
+                                    );
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Error saving mark:", error);
+                        showMessage(`ফলাফল সংরক্ষণ করতে ত্রুটি: ${error.message}`, 'error');
+                    }
+                });
+            });
+        };
+
+
+        // --- Auth Functions ---
+        const handleUnifiedAuth = async () => {
+            const emailInput = document.getElementById('emailInput');
+            const passwordInput = document.getElementById('passwordInput');
+            const unifiedAuthBtn = document.getElementById('unifiedAuthBtn');
+
+            const email = emailInput ? emailInput.value : ''; // Null check
+            const password = passwordInput ? passwordInput.value : ''; // Null check
+
+            if (!email || !password) {
+                showAuthMessage('ইমেল এবং পাসওয়ার্ড উভয়ই পূরণ করুন।', 'error');
+                return;
+            }
+
+            if (unifiedAuthBtn) { // Null check
+                unifiedAuthBtn.textContent = 'প্রসেস করা হচ্ছে...';
+                unifiedAuthBtn.disabled = true;
+            }
+
+            try {
+                // Try to sign in
+                await signInWithEmailAndPassword(auth, email, password);
+                showAuthMessage('সাইন ইন সফল!', 'success');
+            } catch (signInError) {
+                // If sign-in fails, check if it's user-not-found, wrong-password, or invalid-credential, then attempt sign-up
+                if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-credential') {
+                    try {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                        showAuthMessage('নতুন অ্যাকাউন্ট তৈরি এবং সাইন ইন সফল!', 'success');
+                    } catch (signUpError) {
+                        console.error("Sign Up Error:", signUpError);
+                        showAuthMessage(`সাইন আপ ত্রুটি: ${signUpError.message}`, 'error');
+                    }
+                } else {
+                    console.error("Sign In Error:", signInError);
+                    showAuthMessage(`সাইন ইন ত্রুটি: ${signInError.message}`, 'error');
+                }
+            } finally {
+                if (unifiedAuthBtn) { // Null check
+                    unifiedAuthBtn.textContent = 'লগইন/সাইন আপ';
+                    unifiedAuthBtn.disabled = false;
+                }
+            }
+        };
+
+        const handleSignOut = async () => {
+            try {
+                await signOut(auth);
+                showMessage('সফলভাবে সাইন আউট করা হয়েছে।', 'success');
+            } catch (error) {
+                console.error("Sign Out Error:", error);
+                showMessage(`সাইন আউট ত্রুটি: ${error.message}`, 'error');
+            }
+        };
+
+        // --- Update Institution Name Function ---
+        const updateInstitutionName = async (newName) => {
+            if (!db || !userId) {
+                showMessage('ডাটাবেস বা ব্যবহারকারী আইডি উপলব্ধ নয়।', 'error');
+                return;
+            }
+            try {
+                // 'institutionName' ডকুমেন্টটি userSettings কালেকশনের অধীনে থাকবে
+                const docRef = doc(db, userSettingsCollectionPath, 'institutionName');
+                await setDoc(docRef, { name: newName }, { merge: true }); // merge: true যাতে অন্যান্য ফিল্ড ওভাররাইড না হয়
+                showMessage('প্রতিষ্ঠানের নাম সফলভাবে আপডেট করা হয়েছে!', 'success');
+            } catch (error) {
+                console.error("Error updating institution name:", error);
+                showMessage(`প্রতিষ্ঠানের নাম আপডেট করতে ত্রুটি: ${error.message}`, 'error');
+            }
+        };
+
+        // --- Navigation Button Management ---
+        // NEW: Function to render the overall Results tab content with sub-navigation
+        const renderResultsTabContent = (subPage = 'resultEntry') => {
+            const contentContainer = document.getElementById('mainContentArea');
+            if (!contentContainer) return;
+
+            contentContainer.innerHTML = `
+                <div class="p-4 sm:p-6">
+                    <div class="flex flex-col sm:flex-row justify-around bg-gray-100 p-2 rounded-lg mb-6 shadow-sm">
+                        <button id="monthlyListTabBtn" class="tab-button w-full sm:w-1/3 py-2 text-md font-semibold text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200">মাসিক তালিকা</button>
+                        <button id="resultEntryTabBtn" class="tab-button w-full sm:w-1/3 py-2 text-md font-semibold text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200">ফলাফল এন্ট্রি</button>
+                        <button id="resultsViewTabBtn" class="tab-button w-full sm:w-1/3 py-2 text-md font-semibold text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200">ফলাফল</button>
+                    </div>
+                    <div id="resultSubContentArea">
+                        <!-- Sub-content will load here -->
+                    </div>
+                </div>
+            `;
+
+            const monthlyListTabBtn = document.getElementById('monthlyListTabBtn');
+            const resultEntryTabBtn = document.getElementById('resultEntryTabBtn');
+            const resultsViewTabBtn = document.getElementById('resultsViewTabBtn');
+
+            const setSubActiveTab = (btnId) => {
+                document.querySelectorAll('#mainContentArea .tab-button').forEach(button => {
+                    button.classList.remove('active');
+                });
+                const activeBtn = document.getElementById(btnId);
+                if (activeBtn) activeBtn.classList.add('active');
+            };
+
+            if (monthlyListTabBtn) {
+                monthlyListTabBtn.addEventListener('click', () => {
+                    renderMonthlyExamListPage();
+                    setSubActiveTab('monthlyListTabBtn');
+                });
+            }
+            if (resultEntryTabBtn) {
+                resultEntryTabBtn.addEventListener('click', () => {
+                    renderResultEntryPage();
+                    setSubActiveTab('resultEntryTabBtn');
+                });
+            }
+            if (resultsViewTabBtn) {
+                resultsViewTabBtn.addEventListener('click', () => {
+                    renderFilteredResultsPage();
+                    setSubActiveTab('resultsViewTabBtn');
+                });
+            }
+
+            // Render initial sub-page
+            if (subPage === 'monthlyList') {
+                renderMonthlyExamListPage();
+                setSubActiveTab('monthlyListTabBtn');
+            } else if (subPage === 'resultsView') {
+                renderFilteredResultsPage();
+                setSubActiveTab('resultsViewTabBtn');
+            } else { // Default to resultEntry
+                renderResultEntryPage();
+                setSubActiveTab('resultEntryTabBtn');
+            }
+        };
+
+        const navButtons = {
+            upcomingExamsBtn: renderUpcomingExamsList,
+            addExamBtn: renderAddExamForm,
+            resultEntryBtn: renderResultsTabContent, // Now calls the new wrapper function
+            manageStudentsBtn: renderStudentManagementPage, // Now calls dedicated student page
+            managementBtn: renderManagementPage, // Calls general management (no students)
+        };
+
+        const setActiveNavButton = (buttonId) => {
+            document.querySelectorAll('.nav-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            const activeBtn = document.getElementById(buttonId);
+            if (activeBtn) {
+                activeBtn.classList.add('active');
+            }
+        };
+        
+        // সমস্ত ডেটা লিসেনার সেটআপ করার ফাংশনটি এখানে সংজ্ঞায়িত করা হয়েছে যাতে এটি initFirebase থেকে অ্যাক্সেসযোগ্য হয়।
+        const setupRealtimeListeners = () => {
+            if (!db) {
+                console.warn("Database not ready for common data listeners.");
+                return;
+            }
+
+            // Exams
+            onSnapshot(collection(db, examsCollectionPath), (snapshot) => {
+                examsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Only re-render upcoming exams if the active button is 'upcomingExamsBtn'
+                const upcomingExamsBtn = document.getElementById('upcomingExamsBtn');
+                if (upcomingExamsBtn && upcomingExamsBtn.classList.contains('active')) { // Null check
+                    renderUpcomingExamsList();
+                }
+                // Update exam dropdowns for results tab
+                const entryMonthSelect = document.getElementById('entryMonth');
+                if (entryMonthSelect) { // Null check for the entry page
+                    updateExamFilterDropdown('entry');
+                }
+                const filterMonthSelect = document.getElementById('filterMonth');
+                if (filterMonthSelect) { // Null check for the filter page
+                    updateExamFilterDropdown('filter');
+                }
+            }, (error) => {
+                console.error("Error fetching exams:", error);
+                showMessage('পরীক্ষার ডেটা লোড করতে ত্রুটি।', 'error');
+            });
+
+            // Classes
+            onSnapshot(collection(db, classesCollectionPath), (snapshot) => {
+                classesList = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+                populateDropdown('class', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন'); // For Add Exam form
+                populateDropdown('addStudentClass', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন'); // For Add Student form
+                populateDropdown('filterClass', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন'); // For Result Management filter
+                populateDropdown('monthlyListClass', classesList, 'name', 'name', 'ক্লাস নির্বাচন করুন'); // For Monthly List filter
+
+                // Re-populate student dropdowns if class changes and filter is active
+                const filterStudent = document.getElementById('filterStudent');
+                if (filterStudent) { // Null check
+                    updateStudentFilterDropdown();
+                }
+            }, (error) => {
+                console.error("Error fetching classes:", error);
+                showMessage('ক্লাস ডেটা লোড করতে ত্রুটি।', 'error');
+            });
+
+            // Divisions
+            onSnapshot(collection(db, divisionsCollectionPath), (snapshot) => {
+                divisionsList = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+                populateDropdown('division', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন'); // For Add Exam form
+                populateDropdown('addStudentDivision', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন'); // For Add Student form
+                populateDropdown('filterDivision', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন'); // For Result Management filter
+                populateDropdown('monthlyListDivision', divisionsList, 'name', 'name', 'বিভাগ নির্বাচন করুন'); // For Monthly List filter
+                // Re-populate student dropdowns if division changes and filter is active
+                const filterStudent = document.getElementById('filterStudent');
+                if (filterStudent) { // Null check
+                    updateStudentFilterDropdown();
+                }
+            }, (error) => {
+                console.error("Error fetching divisions:", error);
+                showMessage('বিভাগ ডেটা লোড করতে ত্রুটি।', 'error');
+            });
+
+            // Subjects
+            onSnapshot(collection(db, subjectsCollectionPath), (snapshot) => {
+                subjectsList = snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+                populateDropdown('subject', subjectsList, 'name', 'name', 'বিষয় নির্বাচন করুন'); // For Add Exam form
+            }, (error) => {
+                console.error("Error fetching subjects:", error);
+                showMessage('বিষয় ডেটা লোড করতে ত্রুটি।', 'error');
+            });
+
+            // Students: Removed from here, now handled by renderStudentManagementPage()
+            // The global studentsList is still updated to ensure dropdowns like in Result Entry are functional.
+            onSnapshot(collection(db, studentsCollectionPath), (snapshot) => {
+                studentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // Update student dropdown in Result Management if active
+                const filterStudent = document.getElementById('filterStudent');
+                if (filterStudent) { // Null check
+                    updateStudentFilterDropdown();
+                }
+                // When student data changes, re-render the result entry if active and exam selected
+                const studentsForMarksEntryContainer = document.getElementById('studentsForMarksEntryContainer');
+                const entryExamSelect = document.getElementById('entryExam');
+                if (studentsForMarksEntryContainer && entryExamSelect && entryExamSelect.value) { // Null checks
+                    const selectedExam = examsList.find(e => e.id === entryExamSelect.value);
+                    if (selectedExam) {
+                        displayStudentsForMarksEntry(
+                            studentsList.filter(s => s.class === selectedExam.class && s.division === selectedExam.division),
+                            selectedExam.id,
+                            selectedExam.totalMark
+                        );
+                    }
+                }
+            }, (error) => {
+                console.error("Error fetching students:", error);
+                // No showMessage here, as displayManagedItems for students handles its own error message now.
+            });
+
+            // Exam Results (for result display and result entry)
+            onSnapshot(collection(db, examResultsCollectionPath), (snapshot) => {
+                examResultsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                // If result entry is active, and an exam is selected, re-render students for marks entry
+                const studentsForMarksEntryContainer = document.getElementById('studentsForMarksEntryContainer');
+                const entryExamSelect = document.getElementById('entryExam');
+                if (studentsForMarksEntryContainer && entryExamSelect && entryExamSelect.value) { // Null checks
+                    const selectedExam = examsList.find(e => e.id === entryExamSelect.value);
+                    if (selectedExam) {
+                        displayStudentsForMarksEntry(
+                            studentsList.filter(s => s.class === selectedExam.class && s.division === selectedExam.division),
+                            selectedExam.id,
+                            selectedExam.totalMark
+                        );
+                    }
+                }
+            }, (error) => {
+                console.error("Error fetching exam results:", error);
+                showMessage('ফলাফল ডেটা লোড করতে ত্রুটি।', 'error');
+            });
+
+            // User Settings (for institution name)
+            const institutionNameDisplay = document.getElementById('institutionNameDisplay');
+            onSnapshot(doc(db, userSettingsCollectionPath, 'institutionName'), (docSnap) => {
+                if (institutionNameDisplay) { // Null check
+                    if (docSnap.exists() && docSnap.data().name) {
+                        institutionNameDisplay.textContent = docSnap.data().name;
+                    } else {
+                        institutionNameDisplay.textContent = 'আপনার প্রতিষ্ঠানের নাম';
+                        // If no institution name exists, save a default one-time to Firestore
+                        if (userId) { // Ensure userId is set before attempting to save
+                            setDoc(doc(db, userSettingsCollectionPath, 'institutionName'), { name: 'আপনার প্রতিষ্ঠানের নাম' }, { merge: true })
+                                .catch(e => console.error("Error setting default institution name:", e));
+                        }
+                    }
+                }
+            }, (error) => {
+                console.error("Error fetching institution name:", error);
+                showMessage('প্রতিষ্ঠানের নাম লোড করতে ত্রুটি।', 'error');
+            });
+        };
+
+        // --- Main App Initialization ---
+        let hasInitializedUI = false; // Flag to ensure body is unhidden only once
+
+        const initFirebase = async () => {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            appId = firebaseConfig.projectId;
+
+            const bodyElement = document.body;
+            const globalTopBar = document.getElementById('globalTopBar');
+            const globalBottomNavBar = document.getElementById('globalBottomNavBar');
+
+            onAuthStateChanged(auth, (user) => {
+                const authContainer = document.getElementById('authContainer');
+                const mainAppContainer = document.getElementById('mainAppContainer');
+                const userIdDisplay = document.getElementById('userIdDisplay'); // This is not used in this scope, but kept for consistency
+                const displayUserName = document.getElementById('displayUserName');
+                const institutionNameDisplay = document.getElementById('institutionNameDisplay');
+                const institutionNameInput = document.getElementById('institutionNameInput');
+                const upcomingExamsBtn = document.getElementById('upcomingExamsBtn');
+                const addExamBtn = document.getElementById('addExamBtn');
+                const resultEntryBtn = document.getElementById('resultEntryBtn');
+                const manageStudentsBtn = document.getElementById('manageStudentsBtn');
+                const managementBtn = document.getElementById('managementBtn');
+                const signOutBtn = document.getElementById('signOutBtn');
+
+
+                if (user) {
+                    userId = user.uid;
+                    if (authContainer) authContainer.classList.add('hidden');
+                    if (mainAppContainer) mainAppContainer.classList.remove('hidden');
+                    if (globalTopBar) globalTopBar.classList.remove('hidden'); // Show global header
+                    if (globalBottomNavBar) globalBottomNavBar.classList.remove('hidden'); // Show global footer
+                    // userIdDisplay.classList.remove('hidden'); // ইউজার আইডি দেখান (যদি প্রয়োজন হয়) - এটি ডিফল্টভাবে লুকানো রাখা হয়েছে
+                    if (displayUserName) displayUserName.textContent = user.email || 'ব্যবহারকারীর নাম'; // ইউজার ইমেল দেখান
+                    // document.getElementById('userIdSpan').textContent = userId; // এটিও ডিফল্টভাবে লুকানো রাখা হয়েছে
+                    
+                    // অথেন্টিকেটেড userId এর উপর ভিত্তি করে কালেকশন পাথ সেট করুন
+                    examsCollectionPath = `artifacts/${appId}/users/${userId}/exams`;
+                    classesCollectionPath = `artifacts/${appId}/users/${userId}/classes`;
+                    divisionsCollectionPath = `artifacts/${appId}/users/${userId}/divisions`;
+                    subjectsCollectionPath = `artifacts/${appId}/users/${userId}/subjects`;
+                    studentsCollectionPath = `artifacts/${appId}/users/${userId}/students`;
+                    examResultsCollectionPath = `artifacts/${appId}/users/${userId}/examResults`;
+                    userSettingsCollectionPath = `artifacts/${appId}/users/${userId}/settings`; // কালেকশন পাথ সেট করুন
+
+                    setupRealtimeListeners(); // সমস্ত ডেটা লিসেনার সেটআপ করুন
+                    
+                    // লগইন সফল হলে 'হোম' (আসন্ন পরীক্ষা) পৃষ্ঠা লোড করুন
+                    renderUpcomingExamsList();
+                    setActiveNavButton('upcomingExamsBtn'); // 'হোম' বাটনকে সক্রিয় করুন
+                    showMessage('সফলভাবে লগইন করা হয়েছে!', 'success');
+
+                    // নেভিগেশন বাটনের ইভেন্ট লিসেনার সংযুক্ত করুন
+                    if (upcomingExamsBtn) {
+                        upcomingExamsBtn.addEventListener('click', () => {
+                            navButtons.upcomingExamsBtn();
+                            setActiveNavButton('upcomingExamsBtn');
+                        });
+                    }
+                    if (addExamBtn) {
+                        addExamBtn.addEventListener('click', () => {
+                            navButtons.addExamBtn();
+                            setActiveNavButton('addExamBtn');
+                        });
+                    }
+                    if (resultEntryBtn) {
+                        resultEntryBtn.addEventListener('click', () => {
+                            navButtons.resultEntryBtn(); // Call the wrapper for results tab
+                            setActiveNavButton('resultEntryBtn');
+                        });
+                    }
+                    if (manageStudentsBtn) {
+                        manageStudentsBtn.addEventListener('click', () => {
+                            navButtons.manageStudentsBtn();
+                            setActiveNavButton('manageStudentsBtn');
+                        });
+                    }
+                     // Management button will render management page, for now no specific sub-item.
+                     if (managementBtn) {
+                        managementBtn.addEventListener('click', () => {
+                            navButtons.managementBtn(); // Calls the general management page
+                            setActiveNavButton('managementBtn');
+                        });
+                    }
+
+                    // Sign Out Button
+                    if (signOutBtn) {
+                        signOutBtn.addEventListener('click', handleSignOut);
+                    }
+
+                    // Institution Name Edit Logic
+                    if (institutionNameDisplay && institutionNameInput) {
+                        institutionNameDisplay.addEventListener('click', () => {
+                            institutionNameDisplay.classList.add('hidden');
+                            institutionNameInput.classList.remove('hidden');
+                            institutionNameInput.value = institutionNameDisplay.textContent === 'আপনার প্রতিষ্ঠানের নাম' ? '' : institutionNameDisplay.textContent;
+                            institutionNameInput.focus();
+                        });
+
+                        institutionNameInput.addEventListener('blur', () => {
+                            const newName = institutionNameInput.value.trim();
+                            if (newName && newName !== institutionNameDisplay.textContent && newName !== 'আপনার প্রতিষ্ঠানের নাম') {
+                                updateInstitutionName(newName);
+                            } else if (newName === '') {
+                                // If input is cleared, revert to default placeholder visually
+                                institutionNameDisplay.textContent = 'আপনার প্রতিষ্ঠানের নাম';
+                            }
+                            institutionNameInput.classList.add('hidden');
+                            institutionNameDisplay.classList.remove('hidden');
+                        });
+
+                        institutionNameInput.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                institutionNameInput.blur(); // Trigger blur to save
+                            }
+                        });
+                    }
+
+                } else {
+                    userId = null;
+                    if (authContainer) authContainer.classList.remove('hidden');
+                    if (mainAppContainer) mainAppContainer.classList.add('hidden');
+                    if (globalTopBar) globalTopBar.classList.add('hidden'); // Hide global header
+                    if (globalBottomNavBar) globalBottomNavBar.classList.add('hidden'); // Hide global footer
+                    // Removed userIdDisplay.classList.add('hidden'); as it's not present globally
+                }
+                
+                // Ensure the body is visible only after auth state is determined for the first time
+                if (!hasInitializedUI) {
+                    if (bodyElement) {
+                        bodyElement.classList.remove('hidden-until-loaded');
+                        hasInitializedUI = true;
+                    }
+                }
+            });
+        };
+
+        // কাস্টম কনফার্মেশন মডাল বাটনের ইভেন্ট লিসেনার
+        document.getElementById('confirmDeleteBtn')?.addEventListener('click', confirmDelete); // Null check
+        document.getElementById('cancelDeleteBtn')?.addEventListener('click', closeDeleteModal); // Null check
+
+        // অথেন্টিকেশন বাটনের ইভেন্ট লিসেনার
+        document.getElementById('unifiedAuthBtn')?.addEventListener('click', handleUnifiedAuth); // Null check
+        
+        // অ্যাপ চালু হলে Firebase ইনিশিয়ালাইজ করুন
+        window.onload = initFirebase;
+    </script>
+</body>
+</html>
